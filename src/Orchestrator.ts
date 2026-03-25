@@ -159,7 +159,7 @@ export const orchestrate = (
     let resolvedBranch = "";
 
     for (let i = 1; i <= iterations; i++) {
-      yield* display.status(`Iteration ${i}/${iterations} (max)`, "info");
+      yield* display.status(`Iteration ${i}/${iterations}`, "info");
 
       const lifecycleResult = yield* factory.withSandbox(
         ({ hostWorktreePath }) =>

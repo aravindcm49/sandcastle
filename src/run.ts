@@ -176,7 +176,7 @@ export const run = async (options: RunOptions): Promise<RunResult> => {
       yield* d.intro("sandcastle");
       const rows: Record<string, string> = {
         Image: resolvedImageName,
-        Iterations: String(maxIterations),
+        "Max iterations": String(maxIterations),
       };
       rows["Branch"] = resolvedBranch;
       if (resolvedModel) rows["Model"] = resolvedModel;

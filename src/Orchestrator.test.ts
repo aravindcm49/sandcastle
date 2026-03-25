@@ -1428,10 +1428,11 @@ describe("Orchestrator Display integration", () => {
     const entries = await Effect.runPromise(Ref.get(ref));
     const statusEntries = entries.filter((e) => e._tag === "status");
 
-    // Iteration header should include "(max)" to clarify the denominator is the max
-    expect(
-      statusEntries.some((e) => e.message.includes("Iteration 1/2 (max)")),
-    ).toBe(true);
+    // Iteration header should NOT include "(max)" — the summary already communicates the max
+    expect(statusEntries.some((e) => e.message.includes("Iteration 1/2"))).toBe(
+      true,
+    );
+    expect(statusEntries.every((e) => !e.message.includes("(max)"))).toBe(true);
 
     // Completion message when max is reached should say "max iterations"
     expect(
