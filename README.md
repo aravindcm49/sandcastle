@@ -22,9 +22,9 @@ npm install -g @ai-hero/sandcastle
 cd /path/to/your/repo
 sandcastle init
 
-# 2. Set up authentication tokens in .sandcastle/.env
+# 2. Set up environment variables in .sandcastle/.env
 cp .sandcastle/.env.example .sandcastle/.env
-# Edit .sandcastle/.env and fill in your tokens
+# Edit .sandcastle/.env and fill in your values
 ```
 
 ```typescript
@@ -43,23 +43,6 @@ npx tsx main.ts
 # 4. Clean up when you're done
 sandcastle remove-image
 ```
-
-## Authentication
-
-Tokens are resolved automatically from environment files and process environment variables. No CLI flags needed.
-
-| Variable            | Purpose                      |
-| ------------------- | ---------------------------- |
-| `ANTHROPIC_API_KEY` | Anthropic API key            |
-| `GH_TOKEN`          | GitHub personal access token |
-
-Both `ANTHROPIC_API_KEY` and `GH_TOKEN` are required.
-
-**Precedence** (highest to lowest):
-
-1. Repo root `.env`
-2. `.sandcastle/.env`
-3. Process environment variables
 
 ## CLI commands
 
@@ -257,7 +240,7 @@ console.log(result.branch); // target branch name
 | `branch`                      | string      | Target branch name                                 |
 | `logFilePath`                 | string?     | Path to the log file (only when logging to a file) |
 
-Tokens (`ANTHROPIC_API_KEY`, `GH_TOKEN`) are resolved automatically from `.env`, `.sandcastle/.env`, and `process.env` — no need to pass them to the API.
+Environment variables are resolved automatically from `.sandcastle/.env` and `process.env` — no need to pass them to the API. The required variables depend on the **agent provider** (see `sandcastle init` output for details).
 
 ## Configuration
 
