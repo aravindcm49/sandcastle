@@ -6,6 +6,8 @@
   </picture>
 </div>
 
+## What Is Sandcastle?
+
 A TypeScript library for orchestrating AI coding agents in isolated Docker containers. Sandcastle handles the hard parts — building worktrees, invoking the agent, and merging commits back — so you can run AFK agents with a single `run()`.
 
 ## Prerequisites
