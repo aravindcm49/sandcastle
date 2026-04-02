@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { Effect, Layer } from "effect";
 import { describe, expect, it } from "vitest";
-import { claudeCode } from "./AgentProvider.js";
+import { readFile } from "node:fs/promises";
+import { claudeCode, pi } from "./AgentProvider.js";
 import { createSandbox } from "./createSandbox.js";
 import { Sandbox } from "./SandboxFactory.js";
 import { makeLocalSandboxLayer } from "./testSandbox.js";
@@ -44,9 +45,31 @@ const toStreamJson = (output: string): string => {
 };
 
 const testProvider = claudeCode("test-model");
+const testPiProvider = pi("test-model");
+
+/** Format a mock pi agent result as stream-json lines */
+const toPiStreamJson = (output: string): string => {
+  const lines: string[] = [];
+  lines.push(
+    JSON.stringify({
+      type: "message_update",
+      content: [{ type: "text_delta", text: output }],
+    }),
+  );
+  lines.push(
+    JSON.stringify({ type: "agent_end", last_assistant_message: output }),
+  );
+  return lines.join("\n");
+};
+
+/** Known agent command prefixes and their stream formatters */
+const AGENT_PREFIXES: { prefix: string; toStream: (o: string) => string }[] = [
+  { prefix: "claude ", toStream: toStreamJson },
+  { prefix: "pi ", toStream: toPiStreamJson },
+];
 
 /**
- * Create a mock sandbox layer that intercepts `claude` commands and runs a
+ * Create a mock sandbox layer that intercepts agent commands and runs a
  * mock script instead. All other commands pass through to the local sandbox.
  */
 const makeMockAgentLayer = (
@@ -55,9 +78,12 @@ const makeMockAgentLayer = (
 ): Layer.Layer<Sandbox> => {
   const fsLayer = makeLocalSandboxLayer(sandboxDir);
 
+  const matchAgent = (command: string) =>
+    AGENT_PREFIXES.find((a) => command.startsWith(a.prefix));
+
   return Layer.succeed(Sandbox, {
     exec: (command, options) => {
-      if (command.startsWith("claude ")) {
+      if (matchAgent(command)) {
         return Effect.gen(function* () {
           const cwd = options?.cwd ?? sandboxDir;
           const output = yield* Effect.promise(() => mockAgentBehavior(cwd));
@@ -69,11 +95,12 @@ const makeMockAgentLayer = (
       ).pipe(Effect.provide(fsLayer));
     },
     execStreaming: (command, onStdoutLine, options) => {
-      if (command.startsWith("claude ")) {
+      const agent = matchAgent(command);
+      if (agent) {
         return Effect.gen(function* () {
           const cwd = options?.cwd ?? sandboxDir;
           const output = yield* Effect.promise(() => mockAgentBehavior(cwd));
-          const streamOutput = toStreamJson(output);
+          const streamOutput = agent.toStream(output);
           for (const line of streamOutput.split("\n")) {
             onStdoutLine(line);
           }
@@ -301,5 +328,156 @@ describe("createSandbox", () => {
     expect(result1.preservedWorktreePath).toBeUndefined();
     expect(result2.preservedWorktreePath).toBeUndefined();
     await rm(hostDir, { recursive: true, force: true });
+  });
+
+  it("two sequential runs with different agents and prompts succeed on the same sandbox", async () => {
+    const hostDir = await mkdtemp(join(tmpdir(), "sandbox-test-"));
+    await initRepo(hostDir);
+    await commitFile(hostDir, "init.txt", "init", "initial commit");
+
+    const sandbox = await createSandbox({
+      branch: "test-multi-run",
+      _test: {
+        hostRepoDir: hostDir,
+        buildSandboxLayer: (sandboxDir) =>
+          makeMockAgentLayer(sandboxDir, async () => "mock output"),
+      },
+    });
+
+    try {
+      const result1 = await sandbox.run({
+        agent: testProvider,
+        prompt: "implement feature",
+        maxIterations: 1,
+        name: "Implementer",
+      });
+
+      const result2 = await sandbox.run({
+        agent: testPiProvider,
+        prompt: "review the code",
+        maxIterations: 1,
+        name: "Reviewer",
+      });
+
+      expect(result1.iterationsRun).toBe(1);
+      expect(result2.iterationsRun).toBe(1);
+    } finally {
+      await sandbox.close();
+      await rm(hostDir, { recursive: true, force: true });
+    }
+  });
+
+  it("commits from multiple runs accumulate on the branch", async () => {
+    const hostDir = await mkdtemp(join(tmpdir(), "sandbox-test-"));
+    await initRepo(hostDir);
+    await commitFile(hostDir, "init.txt", "init", "initial commit");
+
+    let runCount = 0;
+    const sandbox = await createSandbox({
+      branch: "test-commit-accumulation",
+      _test: {
+        hostRepoDir: hostDir,
+        buildSandboxLayer: (sandboxDir) =>
+          makeMockAgentLayer(sandboxDir, async (cwd) => {
+            runCount++;
+            const fname = `file-${runCount}.txt`;
+            await writeFile(join(cwd, fname), `content ${runCount}`);
+            await execAsync(`git add ${fname}`, { cwd });
+            await execAsync(`git commit -m "commit from run ${runCount}"`, {
+              cwd,
+            });
+            return `done run ${runCount}`;
+          }),
+      },
+    });
+
+    try {
+      const result1 = await sandbox.run({
+        agent: testProvider,
+        prompt: "first run",
+        maxIterations: 1,
+      });
+
+      const result2 = await sandbox.run({
+        agent: testProvider,
+        prompt: "second run",
+        maxIterations: 1,
+      });
+
+      expect(result1.commits.length).toBeGreaterThanOrEqual(1);
+      expect(result2.commits.length).toBeGreaterThanOrEqual(1);
+
+      // Verify both commits exist on the branch
+      const { stdout: log } = await execAsync(
+        `git log --oneline test-commit-accumulation`,
+        { cwd: hostDir },
+      );
+      expect(log).toContain("commit from run 1");
+      expect(log).toContain("commit from run 2");
+    } finally {
+      await sandbox.close();
+      await rm(hostDir, { recursive: true, force: true });
+    }
+  });
+
+  it("onSandboxReady hooks execute once at creation time", async () => {
+    const hostDir = await mkdtemp(join(tmpdir(), "sandbox-test-"));
+    await initRepo(hostDir);
+    await commitFile(hostDir, "init.txt", "init", "initial commit");
+
+    const sandbox = await createSandbox({
+      branch: "test-hooks",
+      hooks: {
+        onSandboxReady: [
+          { command: "touch /tmp/hook-marker.txt" },
+          { command: "echo 'hook-ran' > hook-output.txt" },
+        ],
+      },
+      _test: {
+        hostRepoDir: hostDir,
+        buildSandboxLayer: (sandboxDir) => makeLocalSandboxLayer(sandboxDir),
+      },
+    });
+
+    try {
+      // The hook wrote a file into the worktree (cwd is sandboxRepoDir = worktreePath in test mode)
+      const hookOutput = await readFile(
+        join(sandbox.worktreePath, "hook-output.txt"),
+        "utf-8",
+      );
+      expect(hookOutput.trim()).toBe("hook-ran");
+    } finally {
+      await sandbox.close();
+      await rm(hostDir, { recursive: true, force: true });
+    }
+  });
+
+  it("copyToSandbox copies files into the worktree at creation time", async () => {
+    const hostDir = await mkdtemp(join(tmpdir(), "sandbox-test-"));
+    await initRepo(hostDir);
+    await commitFile(hostDir, "init.txt", "init", "initial commit");
+
+    // Create untracked files in the host repo that should be copied
+    await writeFile(join(hostDir, "config.json"), '{"key": "value"}');
+
+    const sandbox = await createSandbox({
+      branch: "test-copy",
+      copyToSandbox: ["config.json"],
+      _test: {
+        hostRepoDir: hostDir,
+        buildSandboxLayer: (sandboxDir) => makeLocalSandboxLayer(sandboxDir),
+      },
+    });
+
+    try {
+      const copied = await readFile(
+        join(sandbox.worktreePath, "config.json"),
+        "utf-8",
+      );
+      expect(JSON.parse(copied)).toEqual({ key: "value" });
+    } finally {
+      await sandbox.close();
+      await rm(hostDir, { recursive: true, force: true });
+    }
   });
 });
