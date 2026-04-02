@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  claudeCode,
-  CLAUDE_CODE_SCAFFOLD_CONFIG,
-  pi,
-  PI_SCAFFOLD_CONFIG,
-} from "./AgentProvider.js";
+import { claudeCode, pi } from "./AgentProvider.js";
 
 describe("claudeCode factory", () => {
   it("returns a provider with name 'claude-code'", () => {
@@ -100,23 +95,6 @@ describe("claudeCode factory", () => {
     expect(provider1.buildPrintCommand("test")).toContain("model-a");
     expect(provider2.buildPrintCommand("test")).toContain("model-b");
     expect(provider1.buildPrintCommand("test")).not.toContain("model-b");
-  });
-});
-
-describe("CLAUDE_CODE_SCAFFOLD_CONFIG", () => {
-  it("envManifest contains ANTHROPIC_API_KEY and GH_TOKEN but NOT CLAUDE_CODE_OAUTH_TOKEN", () => {
-    expect(CLAUDE_CODE_SCAFFOLD_CONFIG.envManifest).not.toHaveProperty(
-      "CLAUDE_CODE_OAUTH_TOKEN",
-    );
-    expect(CLAUDE_CODE_SCAFFOLD_CONFIG.envManifest).toHaveProperty(
-      "ANTHROPIC_API_KEY",
-    );
-    expect(CLAUDE_CODE_SCAFFOLD_CONFIG.envManifest).toHaveProperty("GH_TOKEN");
-  });
-
-  it("has a non-empty dockerfileTemplate", () => {
-    expect(CLAUDE_CODE_SCAFFOLD_CONFIG.dockerfileTemplate).toContain("FROM");
-    expect(CLAUDE_CODE_SCAFFOLD_CONFIG.dockerfileTemplate).toContain("claude");
   });
 });
 
@@ -282,19 +260,5 @@ describe("pi factory", () => {
     expect(provider1.buildPrintCommand("test")).toContain("model-a");
     expect(provider2.buildPrintCommand("test")).toContain("model-b");
     expect(provider1.buildPrintCommand("test")).not.toContain("model-b");
-  });
-});
-
-describe("PI_SCAFFOLD_CONFIG", () => {
-  it("envManifest contains ANTHROPIC_API_KEY and GH_TOKEN", () => {
-    expect(PI_SCAFFOLD_CONFIG.envManifest).toHaveProperty("ANTHROPIC_API_KEY");
-    expect(PI_SCAFFOLD_CONFIG.envManifest).toHaveProperty("GH_TOKEN");
-  });
-
-  it("has a non-empty dockerfileTemplate that installs pi", () => {
-    expect(PI_SCAFFOLD_CONFIG.dockerfileTemplate).toContain("FROM");
-    expect(PI_SCAFFOLD_CONFIG.dockerfileTemplate).toContain(
-      "@mariozechner/pi-coding-agent",
-    );
   });
 });

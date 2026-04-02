@@ -106,69 +106,11 @@ export interface AgentProvider {
   parseStreamLine(line: string): ParsedStreamEvent[];
 }
 
-/** Internal scaffolding configuration — not part of the public API. */
-export interface AgentScaffoldConfig {
-  readonly envManifest: Record<string, string>;
-  readonly dockerfileTemplate: string;
-}
-
 export const DEFAULT_MODEL = "claude-opus-4-6";
-
-const CLAUDE_CODE_DOCKERFILE = `FROM node:22-bookworm
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \\
-  git \\
-  curl \\
-  jq \\
-  && rm -rf /var/lib/apt/lists/*
-
-# Install GitHub CLI
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
-  | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \\
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \\
-  | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
-  && apt-get update && apt-get install -y gh \\
-  && rm -rf /var/lib/apt/lists/*
-
-# Create a non-root user for Claude to run as
-RUN useradd -m -s /bin/bash agent
-USER agent
-
-# Install Claude Code CLI
-RUN curl -fsSL https://claude.ai/install.sh | bash
-
-# Add Claude to PATH
-ENV PATH="/home/agent/.local/bin:$PATH"
-
-WORKDIR /home/agent
-
-# In worktree sandbox mode, Sandcastle bind-mounts the git worktree at \${SANDBOX_WORKSPACE_DIR}
-# and overrides the working directory to \${SANDBOX_WORKSPACE_DIR} at container start.
-# Structure your Dockerfile so that \${SANDBOX_WORKSPACE_DIR} can serve as the project root.
-ENTRYPOINT ["sleep", "infinity"]
-`;
-
-/** Scaffolding config for Claude Code — used by \`init\` and CLI, not part of the runtime AgentProvider. */
-export const CLAUDE_CODE_SCAFFOLD_CONFIG: AgentScaffoldConfig = {
-  envManifest: {
-    ANTHROPIC_API_KEY: "Anthropic API key",
-    GH_TOKEN: "GitHub personal access token",
-  },
-  dockerfileTemplate: CLAUDE_CODE_DOCKERFILE,
-};
 
 // ---------------------------------------------------------------------------
 // Pi agent provider
 // ---------------------------------------------------------------------------
-
-/** Maps allowlisted pi tool names to the input field containing the display arg */
-const PI_TOOL_ARG_FIELDS: Record<string, string> = {
-  Bash: "command",
-  WebSearch: "query",
-  WebFetch: "url",
-  Agent: "description",
-};
 
 const parsePiStreamLine = (line: string): ParsedStreamEvent[] => {
   if (!line.startsWith("{")) return [];
@@ -192,7 +134,7 @@ const parsePiStreamLine = (line: string): ParsedStreamEvent[] => {
     if (obj.type === "tool_execution_start") {
       const toolName = obj.tool_name;
       if (typeof toolName !== "string") return [];
-      const argField = PI_TOOL_ARG_FIELDS[toolName];
+      const argField = TOOL_ARG_FIELDS[toolName];
       if (argField === undefined) return [];
       const input = obj.input as Record<string, unknown> | undefined;
       if (!input) return [];
@@ -216,47 +158,6 @@ const parsePiStreamLine = (line: string): ParsedStreamEvent[] => {
     // Not valid JSON — skip
   }
   return [];
-};
-
-const PI_DOCKERFILE = `FROM node:22-bookworm
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \\
-  git \\
-  curl \\
-  jq \\
-  && rm -rf /var/lib/apt/lists/*
-
-# Install GitHub CLI
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
-  | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \\
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \\
-  | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
-  && apt-get update && apt-get install -y gh \\
-  && rm -rf /var/lib/apt/lists/*
-
-# Create a non-root user
-RUN useradd -m -s /bin/bash agent
-USER agent
-
-# Install pi coding agent
-RUN npm install -g @mariozechner/pi-coding-agent
-
-WORKDIR /home/agent
-
-# In worktree sandbox mode, Sandcastle bind-mounts the git worktree at \${SANDBOX_WORKSPACE_DIR}
-# and overrides the working directory to \${SANDBOX_WORKSPACE_DIR} at container start.
-# Structure your Dockerfile so that \${SANDBOX_WORKSPACE_DIR} can serve as the project root.
-ENTRYPOINT ["sleep", "infinity"]
-`;
-
-/** Scaffolding config for pi — used by \`init\` and CLI, not part of the runtime AgentProvider. */
-export const PI_SCAFFOLD_CONFIG: AgentScaffoldConfig = {
-  envManifest: {
-    ANTHROPIC_API_KEY: "Anthropic API key",
-    GH_TOKEN: "GitHub personal access token",
-  },
-  dockerfileTemplate: PI_DOCKERFILE,
 };
 
 export const pi = (model: string): AgentProvider => ({
