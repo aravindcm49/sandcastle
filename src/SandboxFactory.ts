@@ -3,7 +3,8 @@ import { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { randomUUID } from "node:crypto";
 import { execFile, execFileSync, spawn } from "node:child_process";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { statSync, readFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import {
   startContainer,
@@ -344,13 +345,28 @@ const startSandboxContainer = (
 };
 
 /**
- * Worktree sandbox mode: creates a git worktree and bind-mounts it into the
- * container at SANDBOX_WORKSPACE_DIR. The host's .git directory is also bind-mounted at
- * its original host path so the worktree's .git file pointer resolves correctly.
- *
- * In 'none' mode: bind-mounts the host's working directory directly into the container.
- * No worktree is created, pruned, or cleaned up.
+ * Resolves the git-related volume mounts needed for the Docker container.
+ * Handles both normal repos (where .git is a directory) and worktrees
+ * (where .git is a file pointing to the parent repo's .git/worktrees/<name>).
  */
+export function resolveGitVolumeMounts(gitPath: string): string[] {
+  const stat = statSync(gitPath);
+  if (stat.isDirectory()) {
+    return [`${gitPath}:${gitPath}`];
+  }
+  // Worktree: .git is a file with "gitdir: <path>"
+  const content = readFileSync(gitPath, "utf-8").trim();
+  const match = content.match(/^gitdir:\s*(.+)$/);
+  if (!match) {
+    // Unrecognized format — fall back to mounting the file as-is
+    return [`${gitPath}:${gitPath}`];
+  }
+  const gitdirPath = match[1]!;
+  // gitdirPath is like /path/to/repo/.git/worktrees/<name>
+  // Mount both the .git file and the parent .git directory
+  const parentGitDir = resolve(gitdirPath, "..", "..");
+  return [`${gitPath}:${gitPath}`, `${parentGitDir}:${parentGitDir}`];
+}
 export const WorktreeDockerSandboxFactory = {
   layer: Layer.effect(
     SandboxFactory,
@@ -380,10 +396,10 @@ export const WorktreeDockerSandboxFactory = {
 
           if (isNoneMode) {
             // None mode: bind-mount host directory directly, no worktree
-            const gitDir = join(hostRepoDir, ".git");
+            const gitPath = join(hostRepoDir, ".git");
             const volumeMounts = [
               `${hostRepoDir}:${SANDBOX_WORKSPACE_DIR}`,
-              `${gitDir}:${gitDir}`,
+              ...resolveGitVolumeMounts(gitPath),
             ];
             return Effect.acquireUseRelease(
               startSandboxContainer(
@@ -458,10 +474,10 @@ export const WorktreeDockerSandboxFactory = {
               )
               .pipe(
                 Effect.flatMap((worktreeInfo) => {
-                  const gitDir = join(hostRepoDir, ".git");
+                  const gitPath = join(hostRepoDir, ".git");
                   const volumeMounts = [
                     `${worktreeInfo.path}:${SANDBOX_WORKSPACE_DIR}`,
-                    `${gitDir}:${gitDir}`,
+                    ...resolveGitVolumeMounts(gitPath),
                   ];
 
                   return startSandboxContainer(
