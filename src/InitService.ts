@@ -183,21 +183,24 @@ export const getAgent = (name: string): AgentEntry | undefined =>
 // Next steps
 // ---------------------------------------------------------------------------
 
-export function getNextStepsLines(template: string): string[] {
+export function getNextStepsLines(
+  template: string,
+  mainFilename: string,
+): string[] {
   if (template === "blank") {
     return [
       "Next steps:",
       `1. Set the required env vars in .sandcastle/.env (see .sandcastle/.env.example)`,
       "2. Read and customize .sandcastle/prompt.md to describe what you want the agent to do",
-      `3. Customize .sandcastle/main.ts — it uses the JS API (\`run()\`) to control how the agent runs`,
-      `4. Add "sandcastle": "npx tsx .sandcastle/main.ts" to your package.json scripts`,
+      `3. Customize .sandcastle/${mainFilename} — it uses the JS API (\`run()\`) to control how the agent runs`,
+      `4. Add "sandcastle": "npx tsx .sandcastle/${mainFilename}" to your package.json scripts`,
       "5. Run `npm run sandcastle` to start the agent",
     ];
   } else {
     return [
       "Next steps:",
       `1. Set the required env vars in .sandcastle/.env (see .sandcastle/.env.example)`,
-      `2. Add "sandcastle": "npx tsx .sandcastle/main.ts" to your package.json scripts`,
+      `2. Add "sandcastle": "npx tsx .sandcastle/${mainFilename}" to your package.json scripts`,
       '3. Templates use `copyToSandbox: ["node_modules"]` to copy your host node_modules into the sandbox for fast startup — the `npm install` in the onSandboxReady hook is a safety net for platform-specific binaries. Adjust both if you use a different package manager',
       "4. Read and customize the prompt files in .sandcastle/ — they shape what the agent does",
       "5. Run `npm run sandcastle` to start the agent",
@@ -228,11 +231,21 @@ const getTemplateDir = (
     return join(getTemplatesDir(), templateName);
   });
 
-const COMPILED_FILE_EXTENSIONS = [".js", ".js.map", ".d.ts", ".d.ts.map"];
+const COMPILED_FILE_EXTENSIONS = [
+  ".js",
+  ".js.map",
+  ".d.ts",
+  ".d.ts.map",
+  ".mjs",
+  ".mjs.map",
+  ".d.mts",
+  ".d.mts.map",
+];
 
 const copyTemplateFiles = (
   templateDir: string,
   destDir: string,
+  mainFilename: string,
 ): Effect.Effect<void, Error, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -246,11 +259,12 @@ const copyTemplateFiles = (
             f !== "template.json" &&
             !COMPILED_FILE_EXTENSIONS.some((ext) => f.endsWith(ext)),
         )
-        .map((f) =>
-          fs
-            .copyFile(join(templateDir, f), join(destDir, f))
-            .pipe(Effect.mapError((e) => new Error(e.message))),
-        ),
+        .map((f) => {
+          const destName = f === "main.mts" ? mainFilename : f;
+          return fs
+            .copyFile(join(templateDir, f), join(destDir, destName))
+            .pipe(Effect.mapError((e) => new Error(e.message)));
+        }),
       { concurrency: "unbounded" },
     );
   });
@@ -265,10 +279,11 @@ const rewriteMainTs = (
   configDir: string,
   agent: AgentEntry,
   model: string,
+  mainFilename: string,
 ): Effect.Effect<void, Error, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const mainTsPath = join(configDir, "main.ts");
+    const mainTsPath = join(configDir, mainFilename);
 
     const exists = yield* fs
       .exists(mainTsPath)
@@ -308,10 +323,39 @@ export interface ScaffoldOptions {
   templateName?: string;
 }
 
+export interface ScaffoldResult {
+  mainFilename: string;
+}
+
+/**
+ * Detect whether the project's package.json has `"type": "module"`.
+ * If so, we can use plain `.ts`; otherwise we use `.mts` to ensure ESM.
+ */
+const detectMainFilename = (
+  repoDir: string,
+): Effect.Effect<string, never, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const pkgPath = join(repoDir, "package.json");
+    const exists = yield* fs
+      .exists(pkgPath)
+      .pipe(Effect.orElseSucceed(() => false));
+    if (!exists) return "main.mts";
+    const content = yield* fs
+      .readFileString(pkgPath)
+      .pipe(Effect.orElseSucceed(() => ""));
+    try {
+      const pkg = JSON.parse(content) as Record<string, unknown>;
+      return pkg["type"] === "module" ? "main.ts" : "main.mts";
+    } catch {
+      return "main.mts";
+    }
+  });
+
 export const scaffold = (
   repoDir: string,
   options: ScaffoldOptions,
-): Effect.Effect<void, Error, FileSystem.FileSystem> =>
+): Effect.Effect<ScaffoldResult, Error, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const { agent, model, templateName = "blank" } = options;
     const fs = yield* FileSystem.FileSystem;
@@ -327,6 +371,8 @@ export const scaffold = (
         ),
       );
     }
+
+    const mainFilename = yield* detectMainFilename(repoDir);
 
     yield* fs
       .makeDirectory(configDir, { recursive: false })
@@ -345,11 +391,13 @@ export const scaffold = (
         fs
           .writeFileString(join(configDir, ".gitignore"), GITIGNORE)
           .pipe(Effect.mapError((e) => new Error(e.message))),
-        copyTemplateFiles(templateDir, configDir),
+        copyTemplateFiles(templateDir, configDir, mainFilename),
       ],
       { concurrency: "unbounded" },
     );
 
-    // Rewrite main.ts with the selected agent factory and model
-    yield* rewriteMainTs(configDir, agent, model);
+    // Rewrite main file with the selected agent factory and model
+    yield* rewriteMainTs(configDir, agent, model, mainFilename);
+
+    return { mainFilename };
   });

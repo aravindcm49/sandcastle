@@ -1,6 +1,6 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect } from "effect";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -187,7 +187,7 @@ describe("InitService scaffold", () => {
     expect(prompt).toContain("<promise>COMPLETE</promise>");
   });
 
-  it("blank template produces skeleton prompt and main.ts", async () => {
+  it("blank template produces skeleton prompt and main.mts", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { templateName: "blank" });
 
@@ -197,22 +197,28 @@ describe("InitService scaffold", () => {
     expect(prompt).toContain("<promise>COMPLETE</promise>");
 
     const { access } = await import("node:fs/promises");
-    await expect(access(join(configDir, "main.ts"))).resolves.toBeUndefined();
+    await expect(access(join(configDir, "main.mts"))).resolves.toBeUndefined();
   });
 
-  it("blank template main.ts imports from @ai-hero/sandcastle", async () => {
+  it("blank template main.mts imports from @ai-hero/sandcastle", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { templateName: "blank" });
 
-    const mainTs = await readFile(join(dir, ".sandcastle", "main.ts"), "utf-8");
+    const mainTs = await readFile(
+      join(dir, ".sandcastle", "main.mts"),
+      "utf-8",
+    );
     expect(mainTs).toContain('"@ai-hero/sandcastle"');
   });
 
-  it("blank template main.ts calls run()", async () => {
+  it("blank template main.mts calls run()", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { templateName: "blank" });
 
-    const mainTs = await readFile(join(dir, ".sandcastle", "main.ts"), "utf-8");
+    const mainTs = await readFile(
+      join(dir, ".sandcastle", "main.mts"),
+      "utf-8",
+    );
     expect(mainTs).toContain("run(");
   });
 
@@ -233,52 +239,64 @@ describe("InitService scaffold", () => {
     expect(prompt1).toBe(prompt2);
   });
 
-  // --- main.ts rewriting ---
+  // --- main file rewriting ---
 
-  it("scaffolds main.ts with the specified model", async () => {
+  it("scaffolds main.mts with the specified model", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { model: "claude-sonnet-4-6" });
 
-    const mainTs = await readFile(join(dir, ".sandcastle", "main.ts"), "utf-8");
+    const mainTs = await readFile(
+      join(dir, ".sandcastle", "main.mts"),
+      "utf-8",
+    );
     expect(mainTs).toContain('claudeCode("claude-sonnet-4-6")');
     // Should not contain the template's original model
     expect(mainTs).not.toContain('claudeCode("claude-opus-4-6")');
   });
 
-  it("scaffolds main.ts with default model when using agent default", async () => {
+  it("scaffolds main.mts with default model when using agent default", async () => {
     const dir = await makeDir();
     await runScaffold(dir);
 
-    const mainTs = await readFile(join(dir, ".sandcastle", "main.ts"), "utf-8");
+    const mainTs = await readFile(
+      join(dir, ".sandcastle", "main.mts"),
+      "utf-8",
+    );
     expect(mainTs).toContain('claudeCode("claude-opus-4-6")');
   });
 
   // --- Template-specific tests ---
 
-  it("simple-loop template produces main.ts and prompt.md", async () => {
+  it("simple-loop template produces main.mts and prompt.md", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { templateName: "simple-loop" });
 
     const configDir = join(dir, ".sandcastle");
     const { access } = await import("node:fs/promises");
 
-    await expect(access(join(configDir, "main.ts"))).resolves.toBeUndefined();
+    await expect(access(join(configDir, "main.mts"))).resolves.toBeUndefined();
     await expect(access(join(configDir, "prompt.md"))).resolves.toBeUndefined();
   });
 
-  it("simple-loop main.ts imports from @ai-hero/sandcastle", async () => {
+  it("simple-loop main.mts imports from @ai-hero/sandcastle", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { templateName: "simple-loop" });
 
-    const mainTs = await readFile(join(dir, ".sandcastle", "main.ts"), "utf-8");
+    const mainTs = await readFile(
+      join(dir, ".sandcastle", "main.mts"),
+      "utf-8",
+    );
     expect(mainTs).toContain('"@ai-hero/sandcastle"');
   });
 
-  it("simple-loop main.ts contains sandcastle.run() with expected options", async () => {
+  it("simple-loop main.mts contains sandcastle.run() with expected options", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { templateName: "simple-loop" });
 
-    const mainTs = await readFile(join(dir, ".sandcastle", "main.ts"), "utf-8");
+    const mainTs = await readFile(
+      join(dir, ".sandcastle", "main.mts"),
+      "utf-8",
+    );
     expect(mainTs).toContain("run(");
     expect(mainTs).toContain("maxIterations");
     expect(mainTs).toContain("3");
@@ -303,14 +321,16 @@ describe("InitService scaffold", () => {
   });
 
   describe("sequential-reviewer template", () => {
-    it("produces main.ts, implement-prompt.md, and review-prompt.md", async () => {
+    it("produces main.mts, implement-prompt.md, and review-prompt.md", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "sequential-reviewer" });
 
       const configDir = join(dir, ".sandcastle");
       const { access } = await import("node:fs/promises");
 
-      await expect(access(join(configDir, "main.ts"))).resolves.toBeUndefined();
+      await expect(
+        access(join(configDir, "main.mts")),
+      ).resolves.toBeUndefined();
       await expect(
         access(join(configDir, "implement-prompt.md")),
       ).resolves.toBeUndefined();
@@ -319,23 +339,23 @@ describe("InitService scaffold", () => {
       ).resolves.toBeUndefined();
     });
 
-    it("main.ts imports from @ai-hero/sandcastle", async () => {
+    it("main.mts imports from @ai-hero/sandcastle", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "sequential-reviewer" });
 
       const mainTs = await readFile(
-        join(dir, ".sandcastle", "main.ts"),
+        join(dir, ".sandcastle", "main.mts"),
         "utf-8",
       );
       expect(mainTs).toContain('"@ai-hero/sandcastle"');
     });
 
-    it("main.ts calls sandcastle.run() twice per iteration (implement + review)", async () => {
+    it("main.mts calls sandcastle.run() twice per iteration (implement + review)", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "sequential-reviewer" });
 
       const mainTs = await readFile(
-        join(dir, ".sandcastle", "main.ts"),
+        join(dir, ".sandcastle", "main.mts"),
         "utf-8",
       );
       expect(mainTs).toContain("sandcastle");
@@ -345,12 +365,12 @@ describe("InitService scaffold", () => {
       expect(mainTs).toContain("review-prompt.md");
     });
 
-    it("main.ts passes branch from implement result to review run", async () => {
+    it("main.mts passes branch from implement result to review run", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "sequential-reviewer" });
 
       const mainTs = await readFile(
-        join(dir, ".sandcastle", "main.ts"),
+        join(dir, ".sandcastle", "main.mts"),
         "utf-8",
       );
       expect(mainTs).toContain("branch");
@@ -405,17 +425,17 @@ describe("InitService scaffold", () => {
   });
 
   describe("getNextStepsLines", () => {
-    it("blank template returns steps mentioning .env and main.ts (not npx sandcastle run)", () => {
-      const lines = getNextStepsLines("blank");
+    it("blank template returns steps mentioning .env and main filename (not npx sandcastle run)", () => {
+      const lines = getNextStepsLines("blank", "main.mts");
       expect(lines.length).toBeGreaterThanOrEqual(2);
       const joined = lines.join("\n");
       expect(joined).toContain(".env");
-      expect(joined).toContain("main.ts");
+      expect(joined).toContain("main.mts");
       expect(joined).not.toContain("npx sandcastle run");
     });
 
     it("non-blank template returns steps mentioning .env, package.json scripts, and npm run sandcastle", () => {
-      const lines = getNextStepsLines("simple-loop");
+      const lines = getNextStepsLines("simple-loop", "main.mts");
       const joined = lines.join("\n");
       expect(joined).toContain(".env");
       expect(joined).toContain("package.json");
@@ -423,56 +443,63 @@ describe("InitService scaffold", () => {
     });
 
     it("non-blank template includes a note about customizing the install command", () => {
-      const lines = getNextStepsLines("simple-loop");
+      const lines = getNextStepsLines("simple-loop", "main.mts");
       const joined = lines.join("\n");
       expect(joined).toContain("npm install");
       expect(joined).toContain("onSandboxReady");
     });
 
     it("non-blank template mentions copyToSandbox and node_modules", () => {
-      const lines = getNextStepsLines("simple-loop");
+      const lines = getNextStepsLines("simple-loop", "main.mts");
       const joined = lines.join("\n");
       expect(joined).toContain("copyToSandbox");
       expect(joined).toContain("node_modules");
     });
 
     it("blank template includes a step to customize prompt.md", () => {
-      const lines = getNextStepsLines("blank");
+      const lines = getNextStepsLines("blank", "main.mts");
       const joined = lines.join("\n");
       expect(joined).toContain("prompt.md");
     });
 
     it("simple-loop template includes a step to read/customize prompt files", () => {
-      const lines = getNextStepsLines("simple-loop");
+      const lines = getNextStepsLines("simple-loop", "main.mts");
       const joined = lines.join("\n");
       expect(joined).toContain("prompt");
       expect(joined).toMatch(/customiz|review|read/i);
     });
 
     it("sequential-reviewer template includes a step mentioning prompt files", () => {
-      const lines = getNextStepsLines("sequential-reviewer");
+      const lines = getNextStepsLines("sequential-reviewer", "main.mts");
       const joined = lines.join("\n");
       expect(joined).toContain("prompt");
       expect(joined).toMatch(/customiz|review|read/i);
     });
 
     it("parallel-planner template includes a step mentioning prompt files", () => {
-      const lines = getNextStepsLines("parallel-planner");
+      const lines = getNextStepsLines("parallel-planner", "main.mts");
       const joined = lines.join("\n");
       expect(joined).toContain("prompt");
       expect(joined).toMatch(/customiz|review|read/i);
     });
 
     it("returns at least 2 numbered steps for blank template", () => {
-      const lines = getNextStepsLines("blank");
+      const lines = getNextStepsLines("blank", "main.mts");
       const numberedSteps = lines.filter((l) => /^\d+\./.test(l));
       expect(numberedSteps.length).toBeGreaterThanOrEqual(2);
     });
 
     it("returns at least 3 numbered steps for non-blank templates", () => {
-      const lines = getNextStepsLines("simple-loop");
+      const lines = getNextStepsLines("simple-loop", "main.mts");
       const numberedSteps = lines.filter((l) => /^\d+\./.test(l));
       expect(numberedSteps.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it("uses main.ts filename when passed", () => {
+      const lines = getNextStepsLines("blank", "main.ts");
+      const joined = lines.join("\n");
+      expect(joined).toContain("main.ts");
+      expect(joined).not.toContain("main.mts");
     });
   });
 
@@ -488,11 +515,14 @@ describe("InitService scaffold", () => {
     expect(dockerfile).toContain("@mariozechner/pi-coding-agent");
   });
 
-  it("scaffolds main.ts with pi factory import when pi agent selected", async () => {
+  it("scaffolds main.mts with pi factory import when pi agent selected", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { agent: piAgent, model: "claude-sonnet-4-6" });
 
-    const mainTs = await readFile(join(dir, ".sandcastle", "main.ts"), "utf-8");
+    const mainTs = await readFile(
+      join(dir, ".sandcastle", "main.mts"),
+      "utf-8",
+    );
     expect(mainTs).toContain('pi("claude-sonnet-4-6")');
     expect(mainTs).not.toContain("claudeCode");
   });
@@ -509,11 +539,14 @@ describe("InitService scaffold", () => {
     expect(dockerfile).toContain("@openai/codex");
   });
 
-  it("scaffolds main.ts with codex factory import when codex agent selected", async () => {
+  it("scaffolds main.mts with codex factory import when codex agent selected", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { agent: codexAgent, model: "gpt-5.4-mini" });
 
-    const mainTs = await readFile(join(dir, ".sandcastle", "main.ts"), "utf-8");
+    const mainTs = await readFile(
+      join(dir, ".sandcastle", "main.mts"),
+      "utf-8",
+    );
     expect(mainTs).toContain('codex("gpt-5.4-mini")');
     expect(mainTs).not.toContain("claudeCode");
   });
@@ -526,14 +559,16 @@ describe("InitService scaffold", () => {
   });
 
   describe("parallel-planner template", () => {
-    it("produces main.ts, plan-prompt.md, implement-prompt.md, merge-prompt.md", async () => {
+    it("produces main.mts, plan-prompt.md, implement-prompt.md, merge-prompt.md", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "parallel-planner" });
 
       const configDir = join(dir, ".sandcastle");
       const { access } = await import("node:fs/promises");
 
-      await expect(access(join(configDir, "main.ts"))).resolves.toBeUndefined();
+      await expect(
+        access(join(configDir, "main.mts")),
+      ).resolves.toBeUndefined();
       await expect(
         access(join(configDir, "plan-prompt.md")),
       ).resolves.toBeUndefined();
@@ -545,35 +580,35 @@ describe("InitService scaffold", () => {
       ).resolves.toBeUndefined();
     });
 
-    it("main.ts uses npm install hook and imports sandcastle", async () => {
+    it("main.mts uses npm install hook and imports sandcastle", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "parallel-planner" });
 
       const mainTs = await readFile(
-        join(dir, ".sandcastle", "main.ts"),
+        join(dir, ".sandcastle", "main.mts"),
         "utf-8",
       );
       expect(mainTs).toContain("npm install");
       expect(mainTs).toContain("sandcastle");
     });
 
-    it("main.ts imports from @ai-hero/sandcastle", async () => {
+    it("main.mts imports from @ai-hero/sandcastle", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "parallel-planner" });
 
       const mainTs = await readFile(
-        join(dir, ".sandcastle", "main.ts"),
+        join(dir, ".sandcastle", "main.mts"),
         "utf-8",
       );
       expect(mainTs).toContain('"@ai-hero/sandcastle"');
     });
 
-    it("main.ts references the specified model for all factory calls", async () => {
+    it("main.mts references the specified model for all factory calls", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "parallel-planner" });
 
       const mainTs = await readFile(
-        join(dir, ".sandcastle", "main.ts"),
+        join(dir, ".sandcastle", "main.mts"),
         "utf-8",
       );
       // All factory calls should use the specified model (default: claude-opus-4-6)
@@ -605,12 +640,12 @@ describe("InitService scaffold", () => {
       expect(prompt).toContain("{{ISSUES}}");
     });
 
-    it("main.ts always uses the merge agent regardless of branch count", async () => {
+    it("main.mts always uses the merge agent regardless of branch count", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "parallel-planner" });
 
       const mainTs = await readFile(
-        join(dir, ".sandcastle", "main.ts"),
+        join(dir, ".sandcastle", "main.mts"),
         "utf-8",
       );
       expect(mainTs).not.toContain("completedBranches.length === 1");
@@ -629,6 +664,107 @@ describe("InitService scaffold", () => {
         "utf-8",
       );
       expect(envExample).toContain("ANTHROPIC_API_KEY=");
+    });
+  });
+
+  // --- ESM extension detection ---
+
+  describe("main file extension detection", () => {
+    it("scaffolds main.mts when no package.json exists", async () => {
+      const dir = await makeDir();
+      const result = await runScaffold(dir);
+
+      expect(result.mainFilename).toBe("main.mts");
+      const { access } = await import("node:fs/promises");
+      await expect(
+        access(join(dir, ".sandcastle", "main.mts")),
+      ).resolves.toBeUndefined();
+    });
+
+    it("scaffolds main.mts when package.json has no type field", async () => {
+      const dir = await makeDir();
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "test" }),
+      );
+      const result = await runScaffold(dir);
+
+      expect(result.mainFilename).toBe("main.mts");
+      const mainContent = await readFile(
+        join(dir, ".sandcastle", "main.mts"),
+        "utf-8",
+      );
+      expect(mainContent).toContain("@ai-hero/sandcastle");
+    });
+
+    it("scaffolds main.mts when package.json has type: commonjs", async () => {
+      const dir = await makeDir();
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "test", type: "commonjs" }),
+      );
+      const result = await runScaffold(dir);
+
+      expect(result.mainFilename).toBe("main.mts");
+    });
+
+    it("scaffolds main.ts when package.json has type: module", async () => {
+      const dir = await makeDir();
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "test", type: "module" }),
+      );
+      const result = await runScaffold(dir);
+
+      expect(result.mainFilename).toBe("main.ts");
+      const { access } = await import("node:fs/promises");
+      await expect(
+        access(join(dir, ".sandcastle", "main.ts")),
+      ).resolves.toBeUndefined();
+      // main.mts should NOT exist
+      await expect(
+        access(join(dir, ".sandcastle", "main.mts")),
+      ).rejects.toThrow();
+    });
+
+    it("main.ts scaffolded with type: module has correct imports and factory calls", async () => {
+      const dir = await makeDir();
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "test", type: "module" }),
+      );
+      await runScaffold(dir);
+
+      const mainContent = await readFile(
+        join(dir, ".sandcastle", "main.ts"),
+        "utf-8",
+      );
+      expect(mainContent).toContain("@ai-hero/sandcastle");
+      expect(mainContent).toContain('claudeCode("claude-opus-4-6")');
+    });
+
+    it("main.ts scaffolded with type: module rewrites agent factory correctly", async () => {
+      const dir = await makeDir();
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "test", type: "module" }),
+      );
+      await runScaffold(dir, { agent: piAgent, model: "claude-sonnet-4-6" });
+
+      const mainContent = await readFile(
+        join(dir, ".sandcastle", "main.ts"),
+        "utf-8",
+      );
+      expect(mainContent).toContain('pi("claude-sonnet-4-6")');
+      expect(mainContent).not.toContain("claudeCode");
+    });
+
+    it("scaffolds main.mts when package.json is invalid JSON", async () => {
+      const dir = await makeDir();
+      await writeFile(join(dir, "package.json"), "not valid json{{{");
+      const result = await runScaffold(dir);
+
+      expect(result.mainFilename).toBe("main.mts");
     });
   });
 });

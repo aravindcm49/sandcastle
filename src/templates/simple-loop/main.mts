@@ -1,8 +1,8 @@
 import { run, claudeCode } from "@ai-hero/sandcastle";
 
 // Simple loop: an agent that picks open GitHub issues one by one and closes them.
-// Run this with: npx tsx .sandcastle/main.ts
-// Or add to package.json scripts: "sandcastle": "npx tsx .sandcastle/main.ts"
+// Run this with: npx tsx .sandcastle/main.mts
+// Or add to package.json scripts: "sandcastle": "npx tsx .sandcastle/main.mts"
 
 await run({
   // A name for this run, shown as a prefix in log output.
