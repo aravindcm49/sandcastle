@@ -38,6 +38,8 @@ export interface PodmanOptions {
    * If `hostPath` does not exist, sandbox creation fails with a clear error.
    */
   readonly mounts?: readonly MountConfig[];
+  /** Environment variables injected by this provider. Merged at launch time with env resolver and agent provider env. */
+  readonly env?: Record<string, string>;
 }
 
 /**
@@ -55,6 +57,7 @@ export const podman = (options?: PodmanOptions): SandboxProvider => {
 
   return createBindMountSandboxProvider({
     name: "podman",
+    env: options?.env,
     create: async (
       createOptions: BindMountCreateOptions,
     ): Promise<BindMountSandboxHandle> => {
