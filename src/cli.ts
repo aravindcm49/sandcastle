@@ -10,6 +10,10 @@ import { styleText } from "node:util";
 import { Display } from "./Display.js";
 import { buildImage, removeImage } from "./DockerLifecycle.js";
 import {
+  buildImage as podmanBuildImage,
+  removeImage as podmanRemoveImage,
+} from "./PodmanLifecycle.js";
+import {
   scaffold,
   listTemplates,
   listAgents,
@@ -342,6 +346,79 @@ const dockerCommand = Command.make("docker", {}, () =>
   }),
 ).pipe(Command.withSubcommands([buildImageCommand, removeImageCommand]));
 
+// --- Podman build-image command ---
+
+const containerfileOption = Options.file("containerfile").pipe(
+  Options.withDescription(
+    "Path to a custom Containerfile (build context will be the current working directory)",
+  ),
+  Options.optional,
+);
+
+const podmanBuildImageCommand = Command.make(
+  "build-image",
+  {
+    imageName: imageNameOption,
+    containerfile: containerfileOption,
+  },
+  ({ imageName: imageNameFlag, containerfile }) =>
+    Effect.gen(function* () {
+      const d = yield* Display;
+      const cwd = process.cwd();
+      yield* requireConfigDir(cwd);
+
+      const imageName = resolveImageName(imageNameFlag, cwd);
+
+      const containerfileDir = join(cwd, CONFIG_DIR);
+      const containerfilePath =
+        containerfile._tag === "Some" ? containerfile.value : undefined;
+      yield* d.spinner(
+        `Building Podman image '${imageName}'...`,
+        podmanBuildImage(imageName, containerfileDir, {
+          containerfile: containerfilePath,
+        }),
+      );
+
+      yield* d.status("Build complete!", "success");
+    }),
+);
+
+// --- Podman remove-image command ---
+
+const podmanRemoveImageCommand = Command.make(
+  "remove-image",
+  {
+    imageName: imageNameOption,
+  },
+  ({ imageName: imageNameFlag }) =>
+    Effect.gen(function* () {
+      const d = yield* Display;
+      const cwd = process.cwd();
+
+      const imageName = resolveImageName(imageNameFlag, cwd);
+
+      yield* d.spinner(
+        `Removing Podman image '${imageName}'...`,
+        podmanRemoveImage(imageName),
+      );
+      yield* d.status("Image removed.", "success");
+    }),
+);
+
+// --- Podman namespace command ---
+
+const podmanCommand = Command.make("podman", {}, () =>
+  Effect.gen(function* () {
+    const d = yield* Display;
+    yield* d.status(
+      "Podman sandbox commands. Use --help to see available subcommands.",
+      "info",
+    );
+  }),
+).pipe(
+  Command.withSubcommands([podmanBuildImageCommand, podmanRemoveImageCommand]),
+);
+
 // --- Root command ---
 
 const rootCommand = Command.make("sandcastle", {}, () =>
@@ -353,7 +430,7 @@ const rootCommand = Command.make("sandcastle", {}, () =>
 );
 
 export const sandcastle = rootCommand.pipe(
-  Command.withSubcommands([initCommand, dockerCommand]),
+  Command.withSubcommands([initCommand, dockerCommand, podmanCommand]),
 );
 
 export const cli = Command.run(sandcastle, {

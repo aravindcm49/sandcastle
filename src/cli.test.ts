@@ -118,6 +118,40 @@ describe("sandcastle CLI", () => {
     }
   });
 
+  it("--help shows podman namespace", async () => {
+    const { stdout } = await runCli("--help", process.cwd());
+    expect(stdout).toContain("podman");
+    expect(stdout).toContain("podman build-image");
+    expect(stdout).toContain("podman remove-image");
+  });
+
+  it("podman --help shows build-image and remove-image subcommands", async () => {
+    const { stdout } = await runCli("podman --help", process.cwd());
+    expect(stdout).toContain("build-image");
+    expect(stdout).toContain("remove-image");
+  });
+
+  it("podman build-image --help shows --containerfile and --image-name flags", async () => {
+    const { stdout } = await runCli("podman build-image --help", process.cwd());
+    expect(stdout).toContain("--containerfile");
+    expect(stdout).toContain("--image-name");
+  });
+
+  it("podman build-image errors when .sandcastle/ is missing", async () => {
+    const hostDir = await mkdtemp(join(tmpdir(), "cli-host-"));
+    await initRepo(hostDir);
+    await commitFile(hostDir, "hello.txt", "hello", "initial commit");
+
+    try {
+      await runCli("podman build-image", hostDir);
+      expect.fail("Expected command to fail");
+    } catch (err: unknown) {
+      const { stdout, stderr } = err as { stdout: string; stderr: string };
+      const output = stdout + stderr;
+      expect(output).toContain("No .sandcastle/ found");
+    }
+  });
+
   it("init --agent nonexistent produces error listing available agents", async () => {
     const hostDir = await mkdtemp(join(tmpdir(), "cli-host-"));
     await initRepo(hostDir);

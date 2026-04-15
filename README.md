@@ -476,6 +476,23 @@ Removes the Docker image.
 | -------------- | -------- | ---------------------------- | ----------------- |
 | `--image-name` | No       | `sandcastle:<repo-dir-name>` | Docker image name |
 
+### `sandcastle podman build-image`
+
+Builds the Podman image from an existing `.sandcastle/` directory. Use this after modifying the Containerfile.
+
+| Option            | Required | Default                      | Description                                                                          |
+| ----------------- | -------- | ---------------------------- | ------------------------------------------------------------------------------------ |
+| `--image-name`    | No       | `sandcastle:<repo-dir-name>` | Podman image name                                                                    |
+| `--containerfile` | No       | —                            | Path to a custom Containerfile (build context will be the current working directory) |
+
+### `sandcastle podman remove-image`
+
+Removes the Podman image.
+
+| Option         | Required | Default                      | Description       |
+| -------------- | -------- | ---------------------------- | ----------------- |
+| `--image-name` | No       | `sandcastle:<repo-dir-name>` | Podman image name |
+
 ### `RunOptions`
 
 | Option                     | Type               | Default                       | Description                                                                                                                                                |
