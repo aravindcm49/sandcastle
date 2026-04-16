@@ -101,12 +101,12 @@ export const startContainer = (
 
     const workdirFlags = options?.workdir ? ["-w", options.workdir] : [];
     const userFlags = options?.user ? ["--user", options.user] : [];
-    const networkFlags = options?.network
-      ? (Array.isArray(options.network)
-          ? options.network
-          : [options.network]
-        ).flatMap((n) => ["--network", n])
+    const networks = options?.network
+      ? Array.isArray(options.network)
+        ? options.network
+        : [options.network]
       : [];
+    const networkFlags = networks.flatMap((n) => ["--network", n]);
 
     yield* dockerExec([
       "run",

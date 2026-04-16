@@ -52,7 +52,7 @@ export interface DockerOptions {
    *
    * When omitted, Docker's default bridge network is used.
    */
-  readonly network?: string | string[];
+  readonly network?: string | readonly string[];
 }
 
 /**

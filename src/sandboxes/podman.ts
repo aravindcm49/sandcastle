@@ -62,7 +62,7 @@ export interface PodmanOptions {
    *
    * When omitted, Podman's default network is used.
    */
-  readonly network?: string | string[];
+  readonly network?: string | readonly string[];
 }
 
 /**
@@ -120,12 +120,12 @@ export const podman = (options?: PodmanOptions): SandboxProvider => {
       ]);
       const volumeArgs = volumeMounts.flatMap((v) => ["-v", v]);
       const usernsArgs = userns ? [`--userns=${userns}`] : [];
-      const networkArgs = options?.network
-        ? (Array.isArray(options.network)
-            ? options.network
-            : [options.network]
-          ).flatMap((n) => ["--network", n])
+      const networks = options?.network
+        ? Array.isArray(options.network)
+          ? options.network
+          : [options.network]
         : [];
+      const networkArgs = networks.flatMap((n) => ["--network", n]);
 
       // Start container via podman run
       await new Promise<void>((resolve, reject) => {
