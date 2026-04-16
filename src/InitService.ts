@@ -63,13 +63,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-# Install GitHub CLI
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
-  | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \\
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \\
-  | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
-  && apt-get update && apt-get install -y gh \\
-  && rm -rf /var/lib/apt/lists/*
+{{BACKLOG_MANAGER_TOOLS}}
 
 # Rename the base image's "node" user (UID 1000) to "agent".
 # This keeps UID 1000 so that --userns=keep-id (Podman) and
@@ -100,13 +94,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-# Install GitHub CLI
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
-  | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \\
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \\
-  | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
-  && apt-get update && apt-get install -y gh \\
-  && rm -rf /var/lib/apt/lists/*
+{{BACKLOG_MANAGER_TOOLS}}
 
 # Rename the base image's "node" user (UID 1000) to "agent".
 # This keeps UID 1000 so that --userns=keep-id (Podman) and
@@ -135,13 +123,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-# Install GitHub CLI
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
-  | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \\
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \\
-  | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
-  && apt-get update && apt-get install -y gh \\
-  && rm -rf /var/lib/apt/lists/*
+{{BACKLOG_MANAGER_TOOLS}}
 
 # Rename the base image's "node" user (UID 1000) to "agent".
 # This keeps UID 1000 so that --userns=keep-id (Podman) and
@@ -170,13 +152,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-# Install GitHub CLI
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
-  | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \\
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \\
-  | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
-  && apt-get update && apt-get install -y gh \\
-  && rm -rf /var/lib/apt/lists/*
+{{BACKLOG_MANAGER_TOOLS}}
 
 # Rename the base image's "node" user (UID 1000) to "agent".
 # This keeps UID 1000 so that --userns=keep-id (Podman) and
@@ -236,30 +212,53 @@ export const listAgents = (): AgentEntry[] => AGENT_REGISTRY;
 export interface BacklogManagerEntry {
   readonly name: string;
   readonly label: string;
-  readonly placeholders: {
+  readonly templateArgs: {
     readonly LIST_TASKS_COMMAND: string;
     readonly VIEW_TASK_COMMAND: string;
     readonly CLOSE_TASK_COMMAND: string;
+    readonly BACKLOG_MANAGER_TOOLS: string;
   };
 }
+
+const GITHUB_CLI_TOOLS = `# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
+  | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \\
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \\
+  | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
+  && apt-get update && apt-get install -y gh \\
+  && rm -rf /var/lib/apt/lists/*`;
+
+const BEADS_TOOLS = `# Install system dependencies for Beads
+RUN apt-get update && apt-get install -y \\
+  libicu72 \\
+  && rm -rf /var/lib/apt/lists/* \\
+  && for lib in /usr/lib/x86_64-linux-gnu/libicu*.so.72; do \\
+       ln -s "$lib" "\${lib%.72}.74"; \\
+     done
+
+RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+
+RUN corepack enable`;
 
 const BACKLOG_MANAGER_REGISTRY: BacklogManagerEntry[] = [
   {
     name: "github-issues",
     label: "GitHub Issues",
-    placeholders: {
+    templateArgs: {
       LIST_TASKS_COMMAND: `gh issue list --state open --label Sandcastle --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`,
       VIEW_TASK_COMMAND: "gh issue view {{TASK_ID}}",
       CLOSE_TASK_COMMAND: `gh issue close {{TASK_ID}} --comment "Completed by Sandcastle"`,
+      BACKLOG_MANAGER_TOOLS: GITHUB_CLI_TOOLS,
     },
   },
   {
     name: "beads",
     label: "Beads",
-    placeholders: {
+    templateArgs: {
       LIST_TASKS_COMMAND: "bd ready --json",
       VIEW_TASK_COMMAND: "bd show {{TASK_ID}}",
       CLOSE_TASK_COMMAND: `bd close {{TASK_ID}} "Completed by Sandcastle"`,
+      BACKLOG_MANAGER_TOOLS: BEADS_TOOLS,
     },
   },
 ];
@@ -494,12 +493,32 @@ const rewritePromptFiles = (
     );
   });
 
+/** Text file extensions eligible for `{{KEY}}` template argument substitution. */
+const TEXT_FILE_EXTENSIONS = new Set([
+  ".md",
+  ".txt",
+  ".env",
+  ".example",
+  // Dockerfile / Containerfile have no extension — handled by name check below
+]);
+
+const isTextFile = (filename: string): boolean => {
+  if (
+    filename === "Dockerfile" ||
+    filename === "Containerfile" ||
+    filename === ".gitignore"
+  )
+    return true;
+  const dotIdx = filename.lastIndexOf(".");
+  if (dotIdx === -1) return false;
+  return TEXT_FILE_EXTENSIONS.has(filename.slice(dotIdx));
+};
+
 /**
- * Replace backlog manager placeholders in all `.md` files in the scaffolded
- * config directory. Placeholders: `{{LIST_TASKS_COMMAND}}`,
- * `{{VIEW_TASK_COMMAND}}`, `{{CLOSE_TASK_COMMAND}}`.
+ * Replace `{{KEY}}` template arguments from the backlog manager's
+ * `templateArgs` map in all text files in the scaffolded config directory.
  */
-const rewriteBacklogPlaceholders = (
+const substituteTemplateArgs = (
   configDir: string,
   backlogManager: BacklogManagerEntry,
 ): Effect.Effect<void, Error, FileSystem.FileSystem> =>
@@ -508,28 +527,23 @@ const rewriteBacklogPlaceholders = (
     const files = yield* fs
       .readDirectory(configDir)
       .pipe(Effect.mapError((e) => new Error(e.message)));
-    const mdFiles = files.filter((f) => f.endsWith(".md"));
+    const textFiles = files.filter(isTextFile);
     yield* Effect.all(
-      mdFiles.map((f) =>
+      textFiles.map((f) =>
         Effect.gen(function* () {
           const filePath = join(configDir, f);
           let content = yield* fs
             .readFileString(filePath)
             .pipe(Effect.mapError((e) => new Error(e.message)));
           const original = content;
-          const { placeholders } = backlogManager;
-          content = content.replace(
-            /\{\{LIST_TASKS_COMMAND\}\}/g,
-            placeholders.LIST_TASKS_COMMAND,
-          );
-          content = content.replace(
-            /\{\{VIEW_TASK_COMMAND\}\}/g,
-            placeholders.VIEW_TASK_COMMAND,
-          );
-          content = content.replace(
-            /\{\{CLOSE_TASK_COMMAND\}\}/g,
-            placeholders.CLOSE_TASK_COMMAND,
-          );
+          for (const [key, value] of Object.entries(
+            backlogManager.templateArgs,
+          )) {
+            content = content.replace(
+              new RegExp(`\\{\\{${key}\\}\\}`, "g"),
+              value,
+            );
+          }
           if (content !== original) {
             yield* fs
               .writeFileString(filePath, content)
@@ -637,8 +651,8 @@ export const scaffold = (
     // Rewrite main file with the selected agent factory and model
     yield* rewriteMainTs(configDir, agent, model, mainFilename);
 
-    // Replace backlog manager placeholders in prompt files (must run before label stripping)
-    yield* rewriteBacklogPlaceholders(configDir, backlogManager);
+    // Replace backlog manager template arguments in all text files (must run before label stripping)
+    yield* substituteTemplateArgs(configDir, backlogManager);
 
     // Strip --label Sandcastle from prompt files when the user declined label creation
     if (!createLabel) {

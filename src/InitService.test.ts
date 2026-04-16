@@ -114,7 +114,7 @@ describe("Agent registry", () => {
 // ---------------------------------------------------------------------------
 
 describe("InitService scaffold", () => {
-  it("uses agent dockerfileTemplate for Dockerfile", async () => {
+  it("uses agent dockerfileTemplate for Dockerfile (with templateArgs substitution)", async () => {
     const dir = await makeDir();
     await runScaffold(dir);
 
@@ -122,7 +122,10 @@ describe("InitService scaffold", () => {
       join(dir, ".sandcastle", "Dockerfile"),
       "utf-8",
     );
-    expect(dockerfile).toBe(claudeCodeAgent.dockerfileTemplate);
+    // Template has {{BACKLOG_MANAGER_TOOLS}} replaced — should contain GitHub CLI (default backlog manager)
+    expect(dockerfile).toContain("FROM node:22-bookworm");
+    expect(dockerfile).toContain("GitHub CLI");
+    expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
   });
 
   it("copies .env.example from template directory", async () => {
@@ -575,8 +578,9 @@ describe("InitService scaffold", () => {
       join(dir, ".sandcastle", "Dockerfile"),
       "utf-8",
     );
-    expect(dockerfile).toBe(piAgent.dockerfileTemplate);
+    expect(dockerfile).toContain("FROM node:22-bookworm");
     expect(dockerfile).toContain("@mariozechner/pi-coding-agent");
+    expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
   });
 
   it("scaffolds main.mts with pi factory import when pi agent selected", async () => {
@@ -599,8 +603,9 @@ describe("InitService scaffold", () => {
       join(dir, ".sandcastle", "Dockerfile"),
       "utf-8",
     );
-    expect(dockerfile).toBe(codexAgent.dockerfileTemplate);
+    expect(dockerfile).toContain("FROM node:22-bookworm");
     expect(dockerfile).toContain("@openai/codex");
+    expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
   });
 
   it("scaffolds main.mts with codex factory import when codex agent selected", async () => {
@@ -790,7 +795,8 @@ describe("InitService scaffold", () => {
 
       const configDir = join(dir, ".sandcastle");
       const dockerfile = await readFile(join(configDir, "Dockerfile"), "utf-8");
-      expect(dockerfile).toBe(claudeCodeAgent.dockerfileTemplate);
+      expect(dockerfile).toContain("FROM node:22-bookworm");
+      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
 
       const envExample = await readFile(
         join(configDir, ".env.example"),
@@ -959,7 +965,8 @@ describe("InitService scaffold", () => {
 
       const configDir = join(dir, ".sandcastle");
       const dockerfile = await readFile(join(configDir, "Dockerfile"), "utf-8");
-      expect(dockerfile).toBe(claudeCodeAgent.dockerfileTemplate);
+      expect(dockerfile).toContain("FROM node:22-bookworm");
+      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
 
       const envExample = await readFile(
         join(configDir, ".env.example"),
@@ -1012,30 +1019,40 @@ describe("InitService scaffold", () => {
       expect(managers.some((m) => m.name === "beads")).toBe(true);
     });
 
-    it("getBacklogManager returns github-issues entry with expected placeholders", () => {
+    it("getBacklogManager returns github-issues entry with expected templateArgs", () => {
       const manager = getBacklogManager("github-issues");
       expect(manager).toBeDefined();
       expect(manager!.label).toBe("GitHub Issues");
-      expect(manager!.placeholders.LIST_TASKS_COMMAND).toContain(
+      expect(manager!.templateArgs.LIST_TASKS_COMMAND).toContain(
         "gh issue list",
       );
-      expect(manager!.placeholders.LIST_TASKS_COMMAND).toContain("labels");
-      expect(manager!.placeholders.LIST_TASKS_COMMAND).toContain("comments");
-      expect(manager!.placeholders.VIEW_TASK_COMMAND).toContain(
+      expect(manager!.templateArgs.LIST_TASKS_COMMAND).toContain("labels");
+      expect(manager!.templateArgs.LIST_TASKS_COMMAND).toContain("comments");
+      expect(manager!.templateArgs.VIEW_TASK_COMMAND).toContain(
         "gh issue view",
       );
-      expect(manager!.placeholders.CLOSE_TASK_COMMAND).toContain(
+      expect(manager!.templateArgs.CLOSE_TASK_COMMAND).toContain(
         "gh issue close",
       );
+      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain(
+        "GitHub CLI",
+      );
+      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain("gh");
     });
 
-    it("getBacklogManager returns beads entry with expected placeholders", () => {
+    it("getBacklogManager returns beads entry with expected templateArgs", () => {
       const manager = getBacklogManager("beads");
       expect(manager).toBeDefined();
       expect(manager!.label).toBe("Beads");
-      expect(manager!.placeholders.LIST_TASKS_COMMAND).toBe("bd ready --json");
-      expect(manager!.placeholders.VIEW_TASK_COMMAND).toContain("bd show");
-      expect(manager!.placeholders.CLOSE_TASK_COMMAND).toContain("bd close");
+      expect(manager!.templateArgs.LIST_TASKS_COMMAND).toBe("bd ready --json");
+      expect(manager!.templateArgs.VIEW_TASK_COMMAND).toContain("bd show");
+      expect(manager!.templateArgs.CLOSE_TASK_COMMAND).toContain("bd close");
+      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain("beads");
+      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain("libicu72");
+      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain(
+        "corepack enable",
+      );
+      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).not.toContain("gh");
     });
 
     it("getBacklogManager returns undefined for unknown manager", () => {
@@ -1404,6 +1421,75 @@ describe("InitService scaffold", () => {
       expect(prompt).not.toContain("gh issue");
       expect(prompt).not.toContain("{{VIEW_TASK_COMMAND}}");
     });
+
+    // --- Dockerfile backlog manager tools ---
+
+    it("scaffold with github-issues produces Dockerfile with GitHub CLI install", async () => {
+      const dir = await makeDir();
+      await runScaffold(dir, {
+        backlogManager: getBacklogManager("github-issues"),
+      });
+
+      const dockerfile = await readFile(
+        join(dir, ".sandcastle", "Dockerfile"),
+        "utf-8",
+      );
+      expect(dockerfile).toContain("GitHub CLI");
+      expect(dockerfile).toContain("gh");
+      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+    });
+
+    it("scaffold with beads produces Dockerfile with beads install (no GitHub CLI)", async () => {
+      const dir = await makeDir();
+      await runScaffold(dir, {
+        backlogManager: getBacklogManager("beads"),
+      });
+
+      const dockerfile = await readFile(
+        join(dir, ".sandcastle", "Dockerfile"),
+        "utf-8",
+      );
+      expect(dockerfile).toContain("beads");
+      expect(dockerfile).toContain("libicu72");
+      expect(dockerfile).toContain("corepack enable");
+      expect(dockerfile).not.toContain("GitHub CLI");
+      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+    });
+
+    it("scaffold with beads + podman produces Containerfile with beads install", async () => {
+      const dir = await makeDir();
+      const podmanProvider = getSandboxProvider("podman")!;
+      await runScaffold(dir, {
+        backlogManager: getBacklogManager("beads"),
+        sandboxProvider: podmanProvider,
+      });
+
+      const containerfile = await readFile(
+        join(dir, ".sandcastle", "Containerfile"),
+        "utf-8",
+      );
+      expect(containerfile).toContain("beads");
+      expect(containerfile).toContain("libicu72");
+      expect(containerfile).not.toContain("GitHub CLI");
+      expect(containerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+    });
+
+    it("scaffold with beads + pi agent produces Dockerfile with beads install and pi agent", async () => {
+      const dir = await makeDir();
+      await runScaffold(dir, {
+        agent: piAgent,
+        model: "claude-sonnet-4-6",
+        backlogManager: getBacklogManager("beads"),
+      });
+
+      const dockerfile = await readFile(
+        join(dir, ".sandcastle", "Dockerfile"),
+        "utf-8",
+      );
+      expect(dockerfile).toContain("beads");
+      expect(dockerfile).toContain("@mariozechner/pi-coding-agent");
+      expect(dockerfile).not.toContain("GitHub CLI");
+    });
   });
 
   // --- ESM extension detection ---
@@ -1539,7 +1625,8 @@ describe("InitService scaffold", () => {
         join(dir, ".sandcastle", "Dockerfile"),
         "utf-8",
       );
-      expect(dockerfile).toBe(claudeCodeAgent.dockerfileTemplate);
+      expect(dockerfile).toContain("FROM node:22-bookworm");
+      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
     });
 
     it("selecting podman writes Containerfile to .sandcastle/", async () => {
@@ -1550,7 +1637,8 @@ describe("InitService scaffold", () => {
         join(dir, ".sandcastle", "Containerfile"),
         "utf-8",
       );
-      expect(containerfile).toBe(claudeCodeAgent.dockerfileTemplate);
+      expect(containerfile).toContain("FROM node:22-bookworm");
+      expect(containerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
     });
 
     it("selecting podman does not write Dockerfile", async () => {
