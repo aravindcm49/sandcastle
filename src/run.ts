@@ -9,7 +9,7 @@ import {
   FileDisplay,
   type Severity,
 } from "./Display.js";
-import { orchestrate } from "./Orchestrator.js";
+import { orchestrate, type IterationResult } from "./Orchestrator.js";
 import { resolvePrompt } from "./PromptResolver.js";
 import {
   WorktreeDockerSandboxFactory,
@@ -169,7 +169,7 @@ export type { IterationResult } from "./Orchestrator.js";
 
 export interface RunResult {
   /** Per-iteration results (use `iterations.length` for the count). */
-  readonly iterations: import("./Orchestrator.js").IterationResult[];
+  readonly iterations: IterationResult[];
   /** The matched completion signal string, or undefined if no signal fired before the iteration limit. */
   readonly completionSignal?: string;
   /** Combined stdout output from all agent iterations. */

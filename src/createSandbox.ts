@@ -11,7 +11,7 @@ import {
 } from "./Display.js";
 import { resolveEnv } from "./EnvResolver.js";
 import { mergeProviderEnv } from "./mergeProviderEnv.js";
-import { orchestrate } from "./Orchestrator.js";
+import { orchestrate, type IterationResult } from "./Orchestrator.js";
 import {
   type PromptArgs,
   substitutePromptArgs,
@@ -86,7 +86,7 @@ export interface SandboxRunOptions {
 
 export interface SandboxRunResult {
   /** Per-iteration results (use `iterations.length` for the count). */
-  readonly iterations: import("./Orchestrator.js").IterationResult[];
+  readonly iterations: IterationResult[];
   /** The matched completion signal string, or undefined if none fired. */
   readonly completionSignal?: string;
   /** Combined stdout output from all agent iterations. */

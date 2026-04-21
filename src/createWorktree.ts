@@ -30,7 +30,7 @@ import { createSandboxFromWorktree } from "./createSandbox.js";
 import type { InteractiveResult } from "./interactive.js";
 import { buildLogFilename, printFileDisplayStartup } from "./run.js";
 import type { LoggingOption } from "./run.js";
-import { orchestrate } from "./Orchestrator.js";
+import { orchestrate, type IterationResult } from "./Orchestrator.js";
 import { resolveEnv } from "./EnvResolver.js";
 import { mergeProviderEnv } from "./mergeProviderEnv.js";
 import { startSandbox } from "./startSandbox.js";
@@ -113,7 +113,7 @@ export interface WorktreeRunOptions {
 
 export interface WorktreeRunResult {
   /** Per-iteration results (use `iterations.length` for the count). */
-  readonly iterations: import("./Orchestrator.js").IterationResult[];
+  readonly iterations: IterationResult[];
   /** The matched completion signal string, or undefined if none fired. */
   readonly completionSignal?: string;
   /** Combined stdout output from all agent iterations. */
