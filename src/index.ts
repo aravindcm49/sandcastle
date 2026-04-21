@@ -32,7 +32,6 @@ export {
   hostSessionStore,
   sandboxSessionStore,
   transferSession,
-  encodeProjectPath,
 } from "./SessionStore.js";
 export type { SessionStore } from "./SessionStore.js";
 export type { SandboxHooks } from "./SandboxLifecycle.js";

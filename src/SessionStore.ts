@@ -8,7 +8,7 @@
  * the JSONL entries from source cwd to target cwd.
  */
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { BindMountSandboxHandle } from "./SandboxProvider.js";
 
@@ -97,25 +97,30 @@ export const sandboxSessionStore = (
     cwd,
     readSession: async (id: string): Promise<string> => {
       const sandboxPath = join(sessionsDir, `${id}.jsonl`);
-      // Copy to a temp file on the host, then read
       const tmpPath = join(
         dirname(sandboxPath),
         `.${id}.jsonl.tmp.${Date.now()}`,
       );
       await handle.copyFileOut(sandboxPath, tmpPath);
-      const content = await readFile(tmpPath, "utf-8");
-      return content;
+      try {
+        return await readFile(tmpPath, "utf-8");
+      } finally {
+        await rm(tmpPath, { force: true }).catch(() => {});
+      }
     },
     writeSession: async (id: string, content: string): Promise<void> => {
       const sandboxPath = join(sessionsDir, `${id}.jsonl`);
-      // Write to a temp file on the host, then copy into sandbox
       const tmpPath = join(
         dirname(sandboxPath),
         `.${id}.jsonl.tmp.${Date.now()}`,
       );
       await mkdir(dirname(tmpPath), { recursive: true });
       await writeFile(tmpPath, content);
-      await handle.copyFileIn(tmpPath, sandboxPath);
+      try {
+        await handle.copyFileIn(tmpPath, sandboxPath);
+      } finally {
+        await rm(tmpPath, { force: true }).catch(() => {});
+      }
     },
   };
 };
