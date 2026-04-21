@@ -438,7 +438,7 @@ describe("worktree.run()", () => {
         maxIterations: 1,
       });
 
-      expect(result.iterationsRun).toBe(1);
+      expect(result.iterations.length).toBe(1);
       expect(typeof result.stdout).toBe("string");
       expect(Array.isArray(result.commits)).toBe(true);
       expect(result.branch).toBe("run-test");

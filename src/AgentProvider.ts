@@ -1,7 +1,8 @@
 export type ParsedStreamEvent =
   | { type: "text"; text: string }
   | { type: "result"; result: string }
-  | { type: "tool_call"; name: string; args: string };
+  | { type: "tool_call"; name: string; args: string }
+  | { type: "session_id"; sessionId: string };
 
 const shellEscape = (s: string): string => "'" + s.replace(/'/g, "'\\''") + "'";
 
@@ -55,6 +56,13 @@ const parseStreamJsonLine = (line: string): ParsedStreamEvent[] => {
     }
     if (obj.type === "result" && typeof obj.result === "string") {
       return [{ type: "result", result: obj.result }];
+    }
+    if (
+      obj.type === "system" &&
+      obj.subtype === "init" &&
+      typeof obj.session_id === "string"
+    ) {
+      return [{ type: "session_id", sessionId: obj.session_id }];
     }
   } catch {
     // Not valid JSON — skip

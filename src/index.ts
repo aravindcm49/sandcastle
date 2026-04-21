@@ -1,5 +1,10 @@
 export { run } from "./run.js";
-export type { RunOptions, RunResult, LoggingOption } from "./run.js";
+export type {
+  RunOptions,
+  RunResult,
+  LoggingOption,
+  IterationResult,
+} from "./run.js";
 export { interactive } from "./interactive.js";
 export type { InteractiveOptions, InteractiveResult } from "./interactive.js";
 export { createSandbox } from "./createSandbox.js";

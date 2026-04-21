@@ -23,9 +23,10 @@ const invokeAgent = (
   onToolCall: (name: string, formattedArgs: string) => void,
   onIdleWarning: (minutes: number) => void,
   idleWarningIntervalMs: number = IDLE_WARNING_INTERVAL_MS,
-): Effect.Effect<{ result: string }, SandboxError> =>
+): Effect.Effect<{ result: string; sessionId?: string }, SandboxError> =>
   Effect.gen(function* () {
     let resultText = "";
+    let sessionId: string | undefined;
 
     // Deferred that will be failed when the idle timer fires
     const timeoutSignal = yield* Deferred.make<never, AgentIdleTimeoutError>();
@@ -79,6 +80,8 @@ const invokeAgent = (
                 resultText = parsed.result;
               } else if (parsed.type === "tool_call") {
                 onToolCall(parsed.name, parsed.args);
+              } else if (parsed.type === "session_id") {
+                sessionId = parsed.sessionId;
               }
             }
           },
@@ -94,7 +97,7 @@ const invokeAgent = (
         );
       }
 
-      return { result: resultText || execResult.stdout };
+      return { result: resultText || execResult.stdout, sessionId };
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => {
@@ -132,8 +135,15 @@ export interface OrchestrateOptions {
   readonly _idleWarningIntervalMs?: number;
 }
 
+/** Per-iteration result carrying an optional session ID. */
+export interface IterationResult {
+  /** Claude Code session ID extracted from the init line, or undefined for non-Claude agents. */
+  readonly sessionId?: string;
+}
+
 export interface OrchestrateResult {
-  readonly iterationsRun: number;
+  /** Per-iteration results (use `iterations.length` for the count). */
+  readonly iterations: IterationResult[];
   /** The matched completion signal string, or undefined if none fired. */
   readonly completionSignal?: string;
   readonly stdout: string;
@@ -166,6 +176,7 @@ export const orchestrate = (
       options.name ? `[${options.name}] ${msg}` : msg;
 
     const allCommits: { sha: string }[] = [];
+    const allIterations: IterationResult[] = [];
     let allStdout = "";
     let resolvedBranch = "";
     let iterationPreservedPath: string | undefined;
@@ -214,7 +225,7 @@ export const orchestrate = (
                       : `Agent idle for ${minutes} minutes`;
                   Effect.runPromise(display.status(label(msg), "warn"));
                 };
-                const { result: agentOutput } = yield* invokeAgent(
+                const { result: agentOutput, sessionId } = yield* invokeAgent(
                   ctx.sandbox,
                   ctx.sandboxRepoDir,
                   fullPrompt,
@@ -238,6 +249,7 @@ export const orchestrate = (
                 return {
                   completionSignal: matchedSignal,
                   stdout: agentOutput,
+                  sessionId,
                 } as const;
               }),
           ),
@@ -249,6 +261,7 @@ export const orchestrate = (
       allCommits.push(...lifecycleResult.commits);
       allStdout += lifecycleResult.result.stdout;
       resolvedBranch = lifecycleResult.branch;
+      allIterations.push({ sessionId: lifecycleResult.result.sessionId });
 
       if (lifecycleResult.result.completionSignal !== undefined) {
         yield* display.status(
@@ -256,7 +269,7 @@ export const orchestrate = (
           "success",
         );
         return {
-          iterationsRun: i,
+          iterations: allIterations,
           completionSignal: lifecycleResult.result.completionSignal,
           stdout: allStdout,
           commits: allCommits,
@@ -271,7 +284,7 @@ export const orchestrate = (
       "info",
     );
     return {
-      iterationsRun: iterations,
+      iterations: allIterations,
       completionSignal: undefined,
       stdout: allStdout,
       commits: allCommits,

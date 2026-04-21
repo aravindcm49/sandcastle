@@ -227,7 +227,7 @@ describe("createSandbox", () => {
         maxIterations: 1,
       });
 
-      expect(result.iterationsRun).toBe(1);
+      expect(result.iterations.length).toBe(1);
       expect(typeof result.stdout).toBe("string");
       expect(Array.isArray(result.commits)).toBe(true);
     } finally {
@@ -427,8 +427,8 @@ describe("createSandbox", () => {
         name: "Reviewer",
       });
 
-      expect(result1.iterationsRun).toBe(1);
-      expect(result2.iterationsRun).toBe(1);
+      expect(result1.iterations.length).toBe(1);
+      expect(result2.iterations.length).toBe(1);
     } finally {
       await sandbox.close();
       await rm(hostDir, { recursive: true, force: true });
@@ -762,7 +762,7 @@ describe("createSandbox", () => {
         maxIterations: 1,
       });
 
-      expect(result.iterationsRun).toBe(1);
+      expect(result.iterations.length).toBe(1);
 
       // Verify the worktree exists and is on the right branch
       const { stdout: branch } = await execAsync(

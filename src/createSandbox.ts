@@ -85,8 +85,8 @@ export interface SandboxRunOptions {
 }
 
 export interface SandboxRunResult {
-  /** Number of iterations the agent completed during this run. */
-  readonly iterationsRun: number;
+  /** Per-iteration results (use `iterations.length` for the count). */
+  readonly iterations: import("./Orchestrator.js").IterationResult[];
   /** The matched completion signal string, or undefined if none fired. */
   readonly completionSignal?: string;
   /** Combined stdout output from all agent iterations. */
@@ -277,7 +277,7 @@ const buildSandboxHandle = (
       );
 
       return {
-        iterationsRun: result.iterationsRun,
+        iterations: result.iterations,
         completionSignal: result.completionSignal,
         stdout: result.stdout,
         commits: result.commits,

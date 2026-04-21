@@ -113,7 +113,8 @@ const result = await run({
   promptFile: ".sandcastle/prompt.md",
 });
 
-console.log(result.iterationsRun); // number of iterations executed
+console.log(result.iterations.length); // number of iterations executed
+console.log(result.iterations); // per-iteration results with optional sessionId
 console.log(result.commits); // array of { sha } for commits created
 console.log(result.branch); // target branch name
 ```
@@ -192,7 +193,7 @@ const result = await run({
   idleTimeoutSeconds: 600,
 });
 
-console.log(result.iterationsRun); // number of iterations executed
+console.log(result.iterations.length); // number of iterations executed
 console.log(result.completionSignal); // matched signal string, or undefined if none fired
 console.log(result.commits); // array of { sha } for commits created
 console.log(result.branch); // target branch name
@@ -305,13 +306,13 @@ if (closeResult.preservedWorktreePath) {
 
 #### `SandboxRunResult`
 
-| Field              | Type        | Description                                                        |
-| ------------------ | ----------- | ------------------------------------------------------------------ |
-| `iterationsRun`    | number      | Number of iterations executed                                      |
-| `completionSignal` | string?     | The matched completion signal string, or `undefined` if none fired |
-| `stdout`           | string      | Combined agent output from all iterations                          |
-| `commits`          | `{ sha }[]` | Commits created during the run                                     |
-| `logFilePath`      | string?     | Path to the log file (only when logging to a file)                 |
+| Field              | Type                | Description                                                        |
+| ------------------ | ------------------- | ------------------------------------------------------------------ |
+| `iterations`       | `IterationResult[]` | Per-iteration results (use `.length` for the count)                |
+| `completionSignal` | string?             | The matched completion signal string, or `undefined` if none fired |
+| `stdout`           | string              | Combined agent output from all iterations                          |
+| `commits`          | `{ sha }[]`         | Commits created during the run                                     |
+| `logFilePath`      | string?             | Path to the log file (only when logging to a file)                 |
 
 #### `CloseResult`
 
@@ -420,14 +421,14 @@ await sandbox.close();
 
 #### `WorktreeRunResult`
 
-| Property           | Type              | Description                                            |
-| ------------------ | ----------------- | ------------------------------------------------------ |
-| `iterationsRun`    | number            | Number of iterations the agent completed               |
-| `completionSignal` | string            | The matched completion signal, or undefined            |
-| `stdout`           | string            | Combined stdout output from all agent iterations       |
-| `commits`          | { sha: string }[] | List of commits made by the agent during the run       |
-| `branch`           | string            | The branch name the agent worked on                    |
-| `logFilePath`      | string            | Path to the log file, if logging was drained to a file |
+| Property           | Type                | Description                                            |
+| ------------------ | ------------------- | ------------------------------------------------------ |
+| `iterations`       | `IterationResult[]` | Per-iteration results (use `.length` for the count)    |
+| `completionSignal` | string              | The matched completion signal, or undefined            |
+| `stdout`           | string              | Combined stdout output from all agent iterations       |
+| `commits`          | { sha: string }[]   | List of commits made by the agent during the run       |
+| `branch`           | string              | The branch name the agent worked on                    |
+| `logFilePath`      | string              | Path to the log file, if logging was drained to a file |
 
 #### `WorktreeCreateSandboxOptions`
 
@@ -643,14 +644,20 @@ Removes the Podman image.
 
 ### `RunResult`
 
-| Field              | Type        | Description                                                        |
-| ------------------ | ----------- | ------------------------------------------------------------------ |
-| `iterationsRun`    | number      | Number of iterations that were executed                            |
-| `completionSignal` | string?     | The matched completion signal string, or `undefined` if none fired |
-| `stdout`           | string      | Agent output                                                       |
-| `commits`          | `{ sha }[]` | Commits created during the run                                     |
-| `branch`           | string      | Target branch name                                                 |
-| `logFilePath`      | string?     | Path to the log file (only when logging to a file)                 |
+| Field              | Type                | Description                                                        |
+| ------------------ | ------------------- | ------------------------------------------------------------------ |
+| `iterations`       | `IterationResult[]` | Per-iteration results (use `.length` for the count)                |
+| `completionSignal` | string?             | The matched completion signal string, or `undefined` if none fired |
+| `stdout`           | string              | Agent output                                                       |
+| `commits`          | `{ sha }[]`         | Commits created during the run                                     |
+| `branch`           | string              | Target branch name                                                 |
+| `logFilePath`      | string?             | Path to the log file (only when logging to a file)                 |
+
+### `IterationResult`
+
+| Field       | Type    | Description                                                                     |
+| ----------- | ------- | ------------------------------------------------------------------------------- |
+| `sessionId` | string? | Claude Code session ID from the init line, or `undefined` for non-Claude agents |
 
 ### `ClaudeCodeOptions`
 

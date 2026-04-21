@@ -220,7 +220,7 @@ describe("Orchestrator", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     expect(result.completionSignal).toBeUndefined();
 
     // Verify the agent's commit was synced back to host
@@ -254,7 +254,7 @@ describe("Orchestrator", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     expect(result.completionSignal).toBe("<promise>COMPLETE</promise>");
   });
 
@@ -284,7 +284,7 @@ describe("Orchestrator", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     expect(result.completionSignal).toBe("TASK_FINISHED");
   });
 
@@ -315,7 +315,7 @@ describe("Orchestrator", () => {
     );
 
     // Custom signal not in output, so all iterations run
-    expect(result.iterationsRun).toBe(2);
+    expect(result.iterations.length).toBe(2);
     expect(result.completionSignal).toBeUndefined();
   });
 
@@ -345,7 +345,7 @@ describe("Orchestrator", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     expect(result.completionSignal).toBe("TASK_ABORTED");
   });
 
@@ -375,7 +375,7 @@ describe("Orchestrator", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     expect(result.completionSignal).toBe("TASK_FINISHED");
   });
 
@@ -405,7 +405,7 @@ describe("Orchestrator", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(2);
+    expect(result.iterations.length).toBe(2);
     expect(result.completionSignal).toBeUndefined();
   });
 
@@ -458,7 +458,7 @@ describe("Orchestrator", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(3);
+    expect(result.iterations.length).toBe(3);
     expect(result.completionSignal).toBe("<promise>COMPLETE</promise>");
 
     // Verify all 3 iteration files arrived on host
@@ -494,7 +494,7 @@ describe("Orchestrator", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(2);
+    expect(result.iterations.length).toBe(2);
     expect(result.completionSignal).toBeUndefined();
 
     // Host should still be at the original commit
@@ -539,7 +539,7 @@ describe("Orchestrator", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(2);
+    expect(result.iterations.length).toBe(2);
     expect(result.completionSignal).toBe("<promise>COMPLETE</promise>");
     // Untracked file from iteration 1 must not exist in iteration 2's sandbox
     expect(markerExistedInIter2).toBe(false);
@@ -1221,7 +1221,7 @@ describe("Orchestrator error handling", () => {
     );
 
     // Should detect COMPLETE from the stdout fallback
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     expect(result.completionSignal).toBe("<promise>COMPLETE</promise>");
   });
 
@@ -1466,7 +1466,7 @@ describe("Orchestrator streaming", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     expect(result.completionSignal).toBe("<promise>COMPLETE</promise>");
   });
 
@@ -2384,7 +2384,7 @@ describe("Orchestrator with pi provider", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     const content = await readFile(join(hostDir, "pi-output.txt"), "utf-8");
     expect(content).toBe("pi was here");
   });
@@ -2412,7 +2412,7 @@ describe("Orchestrator with pi provider", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     expect(result.completionSignal).toBe("<promise>COMPLETE</promise>");
   });
 
@@ -2699,7 +2699,7 @@ describe("Orchestrator with codex provider", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     const content = await readFile(join(hostDir, "codex-output.txt"), "utf-8");
     expect(content).toBe("codex was here");
   });
@@ -2727,7 +2727,7 @@ describe("Orchestrator with codex provider", () => {
       }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
     );
 
-    expect(result.iterationsRun).toBe(1);
+    expect(result.iterations.length).toBe(1);
     expect(result.completionSignal).toBe("<promise>COMPLETE</promise>");
   });
 });

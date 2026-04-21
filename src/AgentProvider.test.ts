@@ -145,6 +145,37 @@ describe("claudeCode factory", () => {
     expect(command).toContain("--dangerously-skip-permissions");
   });
 
+  it("parseStreamLine emits session_id from Claude Code init line", () => {
+    const provider = claudeCode("claude-opus-4-6");
+    const line = JSON.stringify({
+      type: "system",
+      subtype: "init",
+      session_id: "abc-123-def",
+    });
+    expect(provider.parseStreamLine(line)).toEqual([
+      { type: "session_id", sessionId: "abc-123-def" },
+    ]);
+  });
+
+  it("parseStreamLine ignores system events without subtype init", () => {
+    const provider = claudeCode("claude-opus-4-6");
+    const line = JSON.stringify({
+      type: "system",
+      subtype: "other",
+      session_id: "abc-123-def",
+    });
+    expect(provider.parseStreamLine(line)).toEqual([]);
+  });
+
+  it("parseStreamLine ignores system init without session_id", () => {
+    const provider = claudeCode("claude-opus-4-6");
+    const line = JSON.stringify({
+      type: "system",
+      subtype: "init",
+    });
+    expect(provider.parseStreamLine(line)).toEqual([]);
+  });
+
   it("buildPrintCommand omits --dangerously-skip-permissions when false", () => {
     const provider = claudeCode("claude-opus-4-6");
     const command = provider.buildPrintCommand({
@@ -266,6 +297,16 @@ describe("pi factory", () => {
         result: "Final answer <promise>COMPLETE</promise>",
       },
     ]);
+  });
+
+  it("parseStreamLine does not emit session_id for system init lines", () => {
+    const provider = pi("claude-sonnet-4-6");
+    const line = JSON.stringify({
+      type: "system",
+      subtype: "init",
+      session_id: "abc-123",
+    });
+    expect(provider.parseStreamLine(line)).toEqual([]);
   });
 
   it("parseStreamLine returns empty array for non-JSON lines", () => {

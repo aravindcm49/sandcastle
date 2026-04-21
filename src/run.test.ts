@@ -129,7 +129,7 @@ describe("buildCompletionMessage", () => {
 describe("RunResult", () => {
   it("includes logFilePath when logging to a file", () => {
     const result: RunResult = {
-      iterationsRun: 1,
+      iterations: [{ sessionId: undefined }],
       completionSignal: undefined,
       stdout: "",
       commits: [],
@@ -141,13 +141,37 @@ describe("RunResult", () => {
 
   it("allows logFilePath to be absent when logging to stdout", () => {
     const result: RunResult = {
-      iterationsRun: 1,
+      iterations: [{ sessionId: undefined }],
       completionSignal: undefined,
       stdout: "",
       commits: [],
       branch: "main",
     };
     expect(result.logFilePath).toBeUndefined();
+  });
+
+  it("carries sessionId in iterations for Claude Code runs", () => {
+    const result: RunResult = {
+      iterations: [{ sessionId: "abc-123" }, { sessionId: "def-456" }],
+      completionSignal: undefined,
+      stdout: "",
+      commits: [],
+      branch: "main",
+    };
+    expect(result.iterations.length).toBe(2);
+    expect(result.iterations[0]!.sessionId).toBe("abc-123");
+    expect(result.iterations[1]!.sessionId).toBe("def-456");
+  });
+
+  it("has undefined sessionId for non-Claude agent iterations", () => {
+    const result: RunResult = {
+      iterations: [{ sessionId: undefined }],
+      completionSignal: undefined,
+      stdout: "",
+      commits: [],
+      branch: "main",
+    };
+    expect(result.iterations[0]!.sessionId).toBeUndefined();
   });
 });
 

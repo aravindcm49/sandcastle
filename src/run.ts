@@ -165,9 +165,11 @@ export interface RunOptions {
   readonly throwOnDuplicateWorktree?: boolean;
 }
 
+export type { IterationResult } from "./Orchestrator.js";
+
 export interface RunResult {
-  /** Number of iterations the agent completed during this run. */
-  readonly iterationsRun: number;
+  /** Per-iteration results (use `iterations.length` for the count). */
+  readonly iterations: import("./Orchestrator.js").IterationResult[];
   /** The matched completion signal string, or undefined if no signal fired before the iteration limit. */
   readonly completionSignal?: string;
   /** Combined stdout output from all agent iterations. */
@@ -356,7 +358,7 @@ export const run = async (options: RunOptions): Promise<RunResult> => {
 
     const completion = buildCompletionMessage(
       orchestrateResult.completionSignal,
-      orchestrateResult.iterationsRun,
+      orchestrateResult.iterations.length,
     );
     yield* d.status(completion.message, completion.severity);
 
