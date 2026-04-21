@@ -191,7 +191,7 @@ describe("hostSessionStore", () => {
       );
 
       const encoded = encodeProjectPath("/home/user/project");
-      const filePath = join(dir, encoded, "sessions", "sess-1.jsonl");
+      const filePath = join(dir, encoded, "sess-1.jsonl");
       const content = await readFile(filePath, "utf-8");
       expect(content).toContain("init");
     } finally {
@@ -248,15 +248,9 @@ describe("sandboxSessionStore", () => {
       // Write a file to the "sandbox" location to simulate copyFileOut reading it
       const sandboxCwd = "/workspace";
       const encoded = encodeProjectPath(sandboxCwd);
-      const sandboxSessionDir = join(
-        tempDir,
-        ".claude",
-        "projects",
-        encoded,
-        "sessions",
-      );
-      await mkdir(sandboxSessionDir, { recursive: true });
-      await writeFile(join(sandboxSessionDir, "s1.jsonl"), jsonl);
+      const sandboxProjectDir = join(tempDir, ".claude", "projects", encoded);
+      await mkdir(sandboxProjectDir, { recursive: true });
+      await writeFile(join(sandboxProjectDir, "s1.jsonl"), jsonl);
 
       const copyFileOutCalls: Array<{ from: string; to: string }> = [];
 

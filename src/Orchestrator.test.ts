@@ -2875,13 +2875,7 @@ describe("Session capture integration", () => {
       async (repoDir) => {
         // Write a session JSONL file into the sandbox's session store location
         const encoded = encodeProjectPath(repoDir);
-        const sessionsDir = join(
-          "/home/agent",
-          ".claude",
-          "projects",
-          encoded,
-          "sessions",
-        );
+        const sessionsDir = join("/home/agent", ".claude", "projects", encoded);
         // Since our sandbox IS the filesystem, write the session file at the
         // expected sandbox path (the handle's copyFileOut will just do a fs copy)
         await mkdir(sessionsDir, { recursive: true });
@@ -2994,7 +2988,7 @@ describe("Session capture integration", () => {
 
     // Write a session JSONL on the host (simulating a prior capture)
     const encoded = encodeProjectPath(hostDir);
-    const hostSessionsDir = join(hostProjectsDir, encoded, "sessions");
+    const hostSessionsDir = join(hostProjectsDir, encoded);
     await mkdir(hostSessionsDir, { recursive: true });
     await writeFile(
       join(hostSessionsDir, `${mockSessionId}.jsonl`),
@@ -3014,7 +3008,6 @@ describe("Session capture integration", () => {
           ".claude",
           "projects",
           sbEncoded,
-          "sessions",
           `${mockSessionId}.jsonl`,
         );
         const content = await readFile(sbSessionPath, "utf-8");
@@ -3029,7 +3022,6 @@ describe("Session capture integration", () => {
           ".claude",
           "projects",
           sbEncoded,
-          "sessions",
         );
         await mkdir(sessionsDir, { recursive: true });
         await writeFile(

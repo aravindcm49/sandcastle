@@ -49,8 +49,7 @@ export const encodeProjectPath = (cwd: string): string => {
 
 /**
  * Create a host-backed SessionStore that reads/writes session JSONLs on the
- * host filesystem using Claude Code's `~/.claude/projects/<encoded>/sessions/`
- * layout.
+ * host filesystem using Claude Code's `~/.claude/projects/<encoded>/` layout.
  *
  * @param cwd - The host repo directory this store is associated with.
  * @param projectsDir - Override for the projects directory (default: `~/.claude/projects`).
@@ -62,17 +61,17 @@ export const hostSessionStore = (
   const baseDir =
     projectsDir ?? join(process.env.HOME ?? "~", ".claude", "projects");
   const encoded = encodeProjectPath(cwd);
-  const sessionsDir = join(baseDir, encoded, "sessions");
+  const projectDir = join(baseDir, encoded);
 
   return {
     cwd,
-    sessionFilePath: (id: string): string => join(sessionsDir, `${id}.jsonl`),
+    sessionFilePath: (id: string): string => join(projectDir, `${id}.jsonl`),
     readSession: async (id: string): Promise<string> => {
-      return await readFile(join(sessionsDir, `${id}.jsonl`), "utf-8");
+      return await readFile(join(projectDir, `${id}.jsonl`), "utf-8");
     },
     writeSession: async (id: string, content: string): Promise<void> => {
-      await mkdir(sessionsDir, { recursive: true });
-      await writeFile(join(sessionsDir, `${id}.jsonl`), content);
+      await mkdir(projectDir, { recursive: true });
+      await writeFile(join(projectDir, `${id}.jsonl`), content);
     },
   };
 };
@@ -95,13 +94,13 @@ export const sandboxSessionStore = (
   projectsDir: string,
 ): SessionStore => {
   const encoded = encodeProjectPath(cwd);
-  const sessionsDir = join(projectsDir, encoded, "sessions");
+  const projectDir = join(projectsDir, encoded);
 
   return {
     cwd,
-    sessionFilePath: (id: string): string => join(sessionsDir, `${id}.jsonl`),
+    sessionFilePath: (id: string): string => join(projectDir, `${id}.jsonl`),
     readSession: async (id: string): Promise<string> => {
-      const sandboxPath = join(sessionsDir, `${id}.jsonl`);
+      const sandboxPath = join(projectDir, `${id}.jsonl`);
       const tmpPath = join(
         tmpdir(),
         `sandcastle-session-${id}-${Date.now()}.jsonl`,
@@ -114,7 +113,7 @@ export const sandboxSessionStore = (
       }
     },
     writeSession: async (id: string, content: string): Promise<void> => {
-      const sandboxPath = join(sessionsDir, `${id}.jsonl`);
+      const sandboxPath = join(projectDir, `${id}.jsonl`);
       const tmpPath = join(
         tmpdir(),
         `sandcastle-session-${id}-${Date.now()}.jsonl`,

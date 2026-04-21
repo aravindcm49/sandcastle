@@ -182,7 +182,7 @@ describe("RunResult", () => {
         {
           sessionId: "abc-123",
           sessionFilePath:
-            "/home/user/.claude/projects/-home-user-repo/sessions/abc-123.jsonl",
+            "/home/user/.claude/projects/-home-user-repo/abc-123.jsonl",
         },
       ],
       completionSignal: undefined,
