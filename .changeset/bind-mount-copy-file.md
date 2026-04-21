@@ -2,4 +2,4 @@
 "@ai-hero/sandcastle": patch
 ---
 
-Add `copyFileIn` and `copyFileOut` methods to `BindMountSandboxHandle`. Docker provider uses `docker cp`, Podman provider uses `podman cp`, and a new `testBindMount()` provider uses plain filesystem copy. This is the shared primitive that session capture/resume will build on.
+Add `copyFileIn` and `copyFileOut` methods to `BindMountSandboxHandle` for moving individual files between the host and the sandbox. Docker uses `docker cp`, Podman uses `podman cp`, and the new `testBindMount()` provider uses a plain filesystem copy.

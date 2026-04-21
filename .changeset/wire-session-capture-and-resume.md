@@ -2,7 +2,8 @@
 "@ai-hero/sandcastle": patch
 ---
 
-Wire session capture and resume through `run()` for Claude Code:
+Add session capture and resume for Claude Code:
 
-- **Capture:** after each iteration, the agent's session JSONL is transferred from the sandbox to the host at `~/.claude/projects/<encoded>/sessions/<id>.jsonl` with `cwd` fields rewritten to the host repo root. Adds `captureSessions` option to `claudeCode()` (default `true`) and `sessionFilePath` to `IterationResult`.
-- **Resume:** adds `resumeSession` option to `run()` for continuing prior Claude Code conversations in new sandbox runs. Validates the session file exists and is incompatible with `maxIterations > 1`. Transfers session JSONL from host to sandbox with `cwd` rewriting before iteration 1.
+- **Capture:** after each iteration, the agent's session is saved to the host at `~/.claude/projects/<encoded>/sessions/<id>.jsonl` so it can be replayed or inspected locally with Claude Code's usual tooling. Adds `captureSessions` option to `claudeCode()` (default `true`) and `sessionFilePath` to `IterationResult`.
+- **Resume:** adds `resumeSession` option to `run()` for continuing a prior Claude Code conversation in a new sandbox run. Incompatible with `maxIterations > 1`.
+- Exposes the underlying `SessionStore` interface and `transferSession` helper for users who want to move sessions between the host and a sandbox directly.
