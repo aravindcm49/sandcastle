@@ -1,7 +1,7 @@
 import { NodeContext, NodeFileSystem } from "@effect/platform-node";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { Deferred, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { hostSessionStore } from "./SessionStore.js";
 import type { AgentProvider } from "./AgentProvider.js";
 import { ClackDisplay, Display, FileDisplay } from "./Display.js";
@@ -48,6 +48,7 @@ import {
   BUILT_IN_PROMPT_ARG_KEYS,
 } from "./PromptArgumentSubstitution.js";
 import { noSandbox } from "./sandboxes/no-sandbox.js";
+import { raceAbortSignal } from "./raceAbortSignal.js";
 
 /** Branch strategies valid for createWorktree — head is excluded. */
 export type WorktreeBranchStrategy =
@@ -372,51 +373,16 @@ export const createWorktree = async (
                 dangerouslySkipPermissions: resolvedSandbox.tag !== "none",
               });
 
-              // Set up abort deferred if signal provided
-              const abortDeferred = yield* Deferred.make<never, never>();
-              let abortCleanup: (() => void) | null = null;
-              if (opts.signal) {
-                if (opts.signal.aborted) {
-                  return yield* Effect.die(opts.signal.reason);
-                }
-                const onAbort = () => {
-                  Effect.runPromise(
-                    Deferred.die(abortDeferred, opts.signal!.reason),
-                  ).catch(() => {});
-                };
-                opts.signal.addEventListener("abort", onAbort, { once: true });
-                abortCleanup = () =>
-                  opts.signal!.removeEventListener("abort", onAbort);
-              }
-
-              const execEffect = Effect.promise(() =>
-                interactiveExecFn(interactiveArgs, {
-                  stdin: process.stdin,
-                  stdout: process.stdout,
-                  stderr: process.stderr,
-                  cwd: worktreePath,
-                }),
-              );
-
-              let raced: Effect.Effect<{ exitCode: number }, never, never> =
-                execEffect;
-              if (opts.signal) {
-                raced = Effect.raceFirst(
-                  execEffect,
-                  Deferred.await(abortDeferred) as Effect.Effect<
-                    never,
-                    never,
-                    never
-                  >,
-                );
-              }
-
-              const result = yield* raced.pipe(
-                Effect.ensuring(
-                  Effect.sync(() => {
-                    abortCleanup?.();
+              const result = yield* raceAbortSignal(
+                Effect.promise(() =>
+                  interactiveExecFn(interactiveArgs, {
+                    stdin: process.stdin,
+                    stdout: process.stdout,
+                    stderr: process.stderr,
+                    cwd: worktreePath,
                   }),
                 ),
+                opts.signal,
               );
 
               return result.exitCode;

@@ -1,7 +1,7 @@
 import { NodeContext, NodeFileSystem } from "@effect/platform-node";
 import { join } from "node:path";
 import * as clack from "@clack/prompts";
-import { Deferred, Effect } from "effect";
+import { Effect } from "effect";
 import type { AgentProvider } from "./AgentProvider.js";
 import { ClackDisplay, Display } from "./Display.js";
 import { preprocessPrompt } from "./PromptPreprocessor.js";
@@ -38,6 +38,7 @@ import {
   BUILT_IN_PROMPT_ARG_KEYS,
 } from "./PromptArgumentSubstitution.js";
 import { noSandbox } from "./sandboxes/no-sandbox.js";
+import { raceAbortSignal } from "./raceAbortSignal.js";
 import { resolveCwd } from "./resolveCwd.js";
 
 export interface InteractiveOptions {
@@ -361,51 +362,16 @@ export const interactive = async (
               dangerouslySkipPermissions: sandboxProvider.tag !== "none",
             });
 
-            // Set up abort deferred if signal provided
-            const abortDeferred = yield* Deferred.make<never, never>();
-            let abortCleanup: (() => void) | null = null;
-            if (options.signal) {
-              if (options.signal.aborted) {
-                return yield* Effect.die(options.signal.reason);
-              }
-              const onAbort = () => {
-                Effect.runPromise(
-                  Deferred.die(abortDeferred, options.signal!.reason),
-                ).catch(() => {});
-              };
-              options.signal.addEventListener("abort", onAbort, { once: true });
-              abortCleanup = () =>
-                options.signal!.removeEventListener("abort", onAbort);
-            }
-
-            const execEffect = Effect.promise(() =>
-              interactiveExecFn(interactiveArgs, {
-                stdin: process.stdin,
-                stdout: process.stdout,
-                stderr: process.stderr,
-                cwd: worktreePath,
-              }),
-            );
-
-            let raced: Effect.Effect<{ exitCode: number }, never, never> =
-              execEffect;
-            if (options.signal) {
-              raced = Effect.raceFirst(
-                execEffect,
-                Deferred.await(abortDeferred) as Effect.Effect<
-                  never,
-                  never,
-                  never
-                >,
-              );
-            }
-
-            const result = yield* raced.pipe(
-              Effect.ensuring(
-                Effect.sync(() => {
-                  abortCleanup?.();
+            const result = yield* raceAbortSignal(
+              Effect.promise(() =>
+                interactiveExecFn(interactiveArgs, {
+                  stdin: process.stdin,
+                  stdout: process.stdout,
+                  stderr: process.stderr,
+                  cwd: worktreePath,
                 }),
               ),
+              options.signal,
             );
 
             return result.exitCode;
