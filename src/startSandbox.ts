@@ -21,8 +21,10 @@ import {
   type Sandbox,
   type MountEntry,
   makeSandboxLayerFromHandle,
+  SANDBOX_REPO_DIR,
 } from "./SandboxFactory.js";
 import { syncIn } from "./syncIn.js";
+import { normalizeMounts } from "./mountUtils.js";
 
 export interface StartSandboxBindMountOptions {
   provider: BindMountSandboxProvider;
@@ -92,15 +94,24 @@ const startBindMountSandbox = (
 > =>
   Effect.tryPromise({
     try: () => {
-      const mounts = [
+      const rawMounts = [
         {
           hostPath: options.worktreeOrRepoPath,
           sandboxPath: options.repoDir,
         },
         ...options.gitMounts,
       ];
+      const mounts = normalizeMounts(
+        rawMounts,
+        options.worktreeOrRepoPath,
+        SANDBOX_REPO_DIR,
+      );
+      const worktreePath =
+        process.platform === "win32"
+          ? options.worktreeOrRepoPath.replace(/\\/g, "/")
+          : options.worktreeOrRepoPath;
       return options.provider.create({
-        worktreePath: options.worktreeOrRepoPath,
+        worktreePath,
         hostRepoPath: options.hostRepoDir,
         mounts,
         env: options.env,

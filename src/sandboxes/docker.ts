@@ -24,11 +24,8 @@ import {
   type ExecResult,
   type InteractiveExecOptions,
 } from "../SandboxProvider.js";
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { isAbsolute, resolve } from "node:path";
 import type { MountConfig } from "../MountConfig.js";
-import { SANDBOX_REPO_DIR } from "../SandboxFactory.js";
+import { defaultImageName, resolveUserMounts } from "../mountUtils.js";
 
 export interface DockerOptions {
   /** Docker image name (default: derived from repo directory name). */
@@ -267,51 +264,5 @@ export const docker = (options?: DockerOptions): SandboxProvider => {
   });
 };
 
-/**
- * Derive the default Docker image name from the repo directory.
- * Returns `sandcastle:<dir-name>` where dir-name is the last path segment,
- * lowercased and sanitized for Docker image tag rules.
- */
-export const defaultImageName = (repoDir: string): string => {
-  const dirName = repoDir.replace(/\/+$/, "").split("/").pop() ?? "local";
-  const sanitized = dirName.toLowerCase().replace(/[^a-z0-9_.-]/g, "-");
-  return `sandcastle:${sanitized}`;
-};
-
-const expandTilde = (p: string): string => {
-  if (p === "~") return homedir();
-  if (p.startsWith("~/")) return homedir() + p.slice(1);
-  return p;
-};
-
-const resolveHostPath = (hostPath: string): string => {
-  const expanded = expandTilde(hostPath);
-  return isAbsolute(expanded) ? expanded : resolve(process.cwd(), expanded);
-};
-
-const resolveSandboxPath = (sandboxPath: string): string =>
-  isAbsolute(sandboxPath)
-    ? sandboxPath
-    : resolve(SANDBOX_REPO_DIR, sandboxPath);
-
-const resolveUserMounts = (
-  mounts: readonly MountConfig[],
-): Array<{ hostPath: string; sandboxPath: string; readonly?: boolean }> =>
-  mounts.map((m) => {
-    const resolvedHostPath = resolveHostPath(m.hostPath);
-
-    if (!existsSync(resolvedHostPath)) {
-      throw new Error(
-        `Mount hostPath does not exist: ${m.hostPath}` +
-          (m.hostPath !== resolvedHostPath
-            ? ` (resolved to ${resolvedHostPath})`
-            : ""),
-      );
-    }
-
-    return {
-      hostPath: resolvedHostPath,
-      sandboxPath: resolveSandboxPath(m.sandboxPath),
-      ...(m.readonly ? { readonly: true } : {}),
-    };
-  });
+// Re-export defaultImageName from shared module for backwards compatibility
+export { defaultImageName } from "../mountUtils.js";
