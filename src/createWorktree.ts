@@ -1,7 +1,7 @@
 import { NodeContext, NodeFileSystem } from "@effect/platform-node";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { Effect, Layer } from "effect";
+import { Deferred, Effect, Layer } from "effect";
 import { hostSessionStore } from "./SessionStore.js";
 import type { AgentProvider } from "./AgentProvider.js";
 import { ClackDisplay, Display, FileDisplay } from "./Display.js";
@@ -91,6 +91,15 @@ export interface WorktreeInteractiveOptions {
   readonly promptArgs?: PromptArgs;
   /** Environment variables to inject into the sandbox. */
   readonly env?: Record<string, string>;
+  /**
+   * An `AbortSignal` that cancels the interactive session when aborted.
+   *
+   * - If `signal.aborted` is already `true` at entry, rejects immediately.
+   * - Aborting during an active session kills the agent subprocess.
+   * - The rejected promise surfaces `signal.reason` via
+   *   `signal.throwIfAborted()` — no Sandcastle-specific wrapping.
+   */
+  readonly signal?: AbortSignal;
 }
 
 export interface WorktreeRunOptions {
@@ -226,6 +235,9 @@ export const createWorktree = async (
   const worktreeInteractive = async (
     opts: WorktreeInteractiveOptions,
   ): Promise<InteractiveResult> => {
+    // If signal is already aborted, reject immediately without any setup
+    opts.signal?.throwIfAborted();
+
     const { prompt, promptFile, hooks, agent: provider } = opts;
     const resolvedSandbox = opts.sandbox ?? noSandbox();
 
@@ -359,13 +371,52 @@ export const createWorktree = async (
                 prompt: fullPrompt,
                 dangerouslySkipPermissions: resolvedSandbox.tag !== "none",
               });
-              const result = yield* Effect.promise(() =>
+
+              // Set up abort deferred if signal provided
+              const abortDeferred = yield* Deferred.make<never, never>();
+              let abortCleanup: (() => void) | null = null;
+              if (opts.signal) {
+                if (opts.signal.aborted) {
+                  return yield* Effect.die(opts.signal.reason);
+                }
+                const onAbort = () => {
+                  Effect.runPromise(
+                    Deferred.die(abortDeferred, opts.signal!.reason),
+                  ).catch(() => {});
+                };
+                opts.signal.addEventListener("abort", onAbort, { once: true });
+                abortCleanup = () =>
+                  opts.signal!.removeEventListener("abort", onAbort);
+              }
+
+              const execEffect = Effect.promise(() =>
                 interactiveExecFn(interactiveArgs, {
                   stdin: process.stdin,
                   stdout: process.stdout,
                   stderr: process.stderr,
                   cwd: worktreePath,
                 }),
+              );
+
+              let raced: Effect.Effect<{ exitCode: number }, never, never> =
+                execEffect;
+              if (opts.signal) {
+                raced = Effect.raceFirst(
+                  execEffect,
+                  Deferred.await(abortDeferred) as Effect.Effect<
+                    never,
+                    never,
+                    never
+                  >,
+                );
+              }
+
+              const result = yield* raced.pipe(
+                Effect.ensuring(
+                  Effect.sync(() => {
+                    abortCleanup?.();
+                  }),
+                ),
               );
 
               return result.exitCode;
@@ -397,13 +448,22 @@ export const createWorktree = async (
       );
     });
 
-    return Effect.runPromise(
-      inner.pipe(
-        Effect.provide(ClackDisplay.layer),
-        Effect.provide(NodeContext.layer),
-        Effect.provide(NodeFileSystem.layer),
-      ),
-    );
+    let result: InteractiveResult;
+    try {
+      result = await Effect.runPromise(
+        inner.pipe(
+          Effect.provide(ClackDisplay.layer),
+          Effect.provide(NodeContext.layer),
+          Effect.provide(NodeFileSystem.layer),
+        ),
+      );
+    } catch (error: unknown) {
+      // If the signal was aborted, surface its reason verbatim (no wrapping)
+      opts.signal?.throwIfAborted();
+      throw error;
+    }
+
+    return result;
   };
 
   const worktreeRun = async (

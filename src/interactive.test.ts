@@ -594,6 +594,92 @@ describe("interactive()", () => {
     ).rejects.toThrow("copyToWorktree is not supported with head");
   });
 
+  // --- AbortSignal tests ---
+
+  it("rejects immediately with pre-aborted signal without doing setup", async () => {
+    const ac = new AbortController();
+    ac.abort("cancelled before start");
+
+    const provider = makeTestProvider(async () => {
+      throw new Error("interactiveExec should not be called");
+    });
+
+    await expect(
+      interactive({
+        agent: claudeCode("claude-opus-4-6"),
+        sandbox: provider,
+        prompt: "test",
+        branchStrategy: { type: "head" },
+        signal: ac.signal,
+      }),
+    ).rejects.toThrow("cancelled before start");
+  });
+
+  it("surfaces signal.reason verbatim (no wrapping)", async () => {
+    const reason = new DOMException("user cancelled", "AbortError");
+    const ac = new AbortController();
+    ac.abort(reason);
+
+    const provider = makeTestProvider(async () => {
+      throw new Error("interactiveExec should not be called");
+    });
+
+    try {
+      await interactive({
+        agent: claudeCode("claude-opus-4-6"),
+        sandbox: provider,
+        prompt: "test",
+        branchStrategy: { type: "head" },
+        signal: ac.signal,
+      });
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect(err).toBe(reason);
+    }
+  });
+
+  it("aborts an active interactive session when signal fires", async () => {
+    const ac = new AbortController();
+
+    const provider = makeTestProvider(async (_args, _opts) => {
+      // Simulate a long-running interactive session
+      return new Promise<{ exitCode: number }>((resolve) => {
+        // Abort mid-session
+        setTimeout(() => ac.abort("mid-session abort"), 50);
+        // This would normally run for a long time
+        setTimeout(() => resolve({ exitCode: 0 }), 10000);
+      });
+    });
+
+    await expect(
+      interactive({
+        agent: claudeCode("claude-opus-4-6"),
+        sandbox: provider,
+        prompt: "test",
+        branchStrategy: { type: "head" },
+        signal: ac.signal,
+      }),
+    ).rejects.toThrow("mid-session abort");
+  });
+
+  it("allows signal to be omitted", () => {
+    const opts: InteractiveOptions = {
+      agent: claudeCode("claude-opus-4-6"),
+      prompt: "test",
+    };
+    expect(opts.signal).toBeUndefined();
+  });
+
+  it("allows signal to be specified on InteractiveOptions", () => {
+    const ac = new AbortController();
+    const opts: InteractiveOptions = {
+      agent: claudeCode("claude-opus-4-6"),
+      prompt: "test",
+      signal: ac.signal,
+    };
+    expect(opts.signal).toBe(ac.signal);
+  });
+
   // --- cwd option tests ---
 
   it("uses cwd as host repo directory for worktree placement", async () => {

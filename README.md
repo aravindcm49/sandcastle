@@ -401,16 +401,17 @@ await sandbox.close();
 
 #### `WorktreeInteractiveOptions`
 
-| Option       | Type                   | Default       | Description                                          |
-| ------------ | ---------------------- | ------------- | ---------------------------------------------------- |
-| `agent`      | AgentProvider          | —             | **Required.** Agent provider                         |
-| `sandbox`    | AnySandboxProvider     | `noSandbox()` | Sandbox provider (defaults to no sandbox)            |
-| `prompt`     | string                 | —             | Inline prompt (mutually exclusive with `promptFile`) |
-| `promptFile` | string                 | —             | Path to prompt file                                  |
-| `name`       | string                 | —             | Optional session name                                |
-| `hooks`      | SandboxHooks           | —             | Lifecycle hooks (`host.*`, `sandbox.*`)              |
-| `promptArgs` | PromptArgs             | —             | Key-value map for `{{KEY}}` placeholder substitution |
-| `env`        | Record<string, string> | —             | Environment variables to inject into the sandbox     |
+| Option       | Type                   | Default       | Description                                                                                |
+| ------------ | ---------------------- | ------------- | ------------------------------------------------------------------------------------------ |
+| `agent`      | AgentProvider          | —             | **Required.** Agent provider                                                               |
+| `sandbox`    | AnySandboxProvider     | `noSandbox()` | Sandbox provider (defaults to no sandbox)                                                  |
+| `prompt`     | string                 | —             | Inline prompt (mutually exclusive with `promptFile`)                                       |
+| `promptFile` | string                 | —             | Path to prompt file                                                                        |
+| `name`       | string                 | —             | Optional session name                                                                      |
+| `hooks`      | SandboxHooks           | —             | Lifecycle hooks (`host.*`, `sandbox.*`)                                                    |
+| `promptArgs` | PromptArgs             | —             | Key-value map for `{{KEY}}` placeholder substitution                                       |
+| `env`        | Record<string, string> | —             | Environment variables to inject into the sandbox                                           |
+| `signal`     | AbortSignal            | —             | Cancel the session when aborted. Kills the agent subprocess; rejects with `signal.reason`. |
 
 #### `WorktreeRunOptions`
 

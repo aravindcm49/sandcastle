@@ -1,7 +1,7 @@
 import { NodeContext, NodeFileSystem } from "@effect/platform-node";
 import { join } from "node:path";
 import * as clack from "@clack/prompts";
-import { Effect } from "effect";
+import { Deferred, Effect } from "effect";
 import type { AgentProvider } from "./AgentProvider.js";
 import { ClackDisplay, Display } from "./Display.js";
 import { preprocessPrompt } from "./PromptPreprocessor.js";
@@ -70,6 +70,17 @@ export interface InteractiveOptions {
    * or is not a directory.
    */
   readonly cwd?: string;
+  /**
+   * An `AbortSignal` that cancels the interactive session when aborted.
+   *
+   * - If `signal.aborted` is already `true` at entry, `interactive()` rejects
+   *   immediately without doing any setup work.
+   * - Aborting during an active session kills the agent subprocess.
+   * - The rejected promise surfaces `signal.reason` via
+   *   `signal.throwIfAborted()` — no Sandcastle-specific wrapping.
+   * - The worktree is preserved on disk after abort (error-path behavior).
+   */
+  readonly signal?: AbortSignal;
 }
 
 export interface InteractiveResult {
@@ -97,6 +108,9 @@ export interface InteractiveResult {
 export const interactive = async (
   options: InteractiveOptions,
 ): Promise<InteractiveResult> => {
+  // If signal is already aborted, reject immediately without any setup
+  options.signal?.throwIfAborted();
+
   const { prompt, promptFile, hooks, agent: provider } = options;
 
   const resolvedSandbox = options.sandbox ?? noSandbox();
@@ -346,13 +360,52 @@ export const interactive = async (
               prompt: fullPrompt,
               dangerouslySkipPermissions: sandboxProvider.tag !== "none",
             });
-            const result = yield* Effect.promise(() =>
+
+            // Set up abort deferred if signal provided
+            const abortDeferred = yield* Deferred.make<never, never>();
+            let abortCleanup: (() => void) | null = null;
+            if (options.signal) {
+              if (options.signal.aborted) {
+                return yield* Effect.die(options.signal.reason);
+              }
+              const onAbort = () => {
+                Effect.runPromise(
+                  Deferred.die(abortDeferred, options.signal!.reason),
+                ).catch(() => {});
+              };
+              options.signal.addEventListener("abort", onAbort, { once: true });
+              abortCleanup = () =>
+                options.signal!.removeEventListener("abort", onAbort);
+            }
+
+            const execEffect = Effect.promise(() =>
               interactiveExecFn(interactiveArgs, {
                 stdin: process.stdin,
                 stdout: process.stdout,
                 stderr: process.stderr,
                 cwd: worktreePath,
               }),
+            );
+
+            let raced: Effect.Effect<{ exitCode: number }, never, never> =
+              execEffect;
+            if (options.signal) {
+              raced = Effect.raceFirst(
+                execEffect,
+                Deferred.await(abortDeferred) as Effect.Effect<
+                  never,
+                  never,
+                  never
+                >,
+              );
+            }
+
+            const result = yield* raced.pipe(
+              Effect.ensuring(
+                Effect.sync(() => {
+                  abortCleanup?.();
+                }),
+              ),
             );
 
             return result.exitCode;
@@ -413,11 +466,20 @@ export const interactive = async (
     );
   });
 
-  return Effect.runPromise(
-    inner.pipe(
-      Effect.provide(ClackDisplay.layer),
-      Effect.provide(NodeContext.layer),
-      Effect.provide(NodeFileSystem.layer),
-    ),
-  );
+  let result: InteractiveResult;
+  try {
+    result = await Effect.runPromise(
+      inner.pipe(
+        Effect.provide(ClackDisplay.layer),
+        Effect.provide(NodeContext.layer),
+        Effect.provide(NodeFileSystem.layer),
+      ),
+    );
+  } catch (error: unknown) {
+    // If the signal was aborted, surface its reason verbatim (no wrapping)
+    options.signal?.throwIfAborted();
+    throw error;
+  }
+
+  return result;
 };
