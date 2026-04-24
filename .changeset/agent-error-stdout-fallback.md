@@ -2,4 +2,4 @@
 "@ai-hero/sandcastle": patch
 ---
 
-Fall back to resultText then tail of stdout when stderr is empty on non-zero agent exit, so providers like OpenCode surface error details in `AgentError`
+Surface agent error details in `AgentError` when stderr is empty. Error events emitted to stdout by Codex and Pi, plus OpenCode's result text, are now parsed and included in the error message instead of being dropped.

@@ -2,4 +2,4 @@
 "@ai-hero/sandcastle": patch
 ---
 
-Replace hardcoded `main` with `{{SOURCE_BRANCH}}` in review-prompt.md templates
+Fix built-in review prompt templates so they respect the configured source branch instead of always diffing against `main`.
