@@ -14,6 +14,20 @@ const TOOL_ARG_FIELDS: Record<string, string> = {
   Agent: "description",
 };
 
+/**
+ * Extract an error message from a parsed JSON error event.
+ * Handles { error: "string" }, { error: { message: "string" } }, and { message: "string" }.
+ */
+const extractErrorMessage = (obj: any): string | undefined => {
+  const err = obj.error;
+  if (typeof err === "string") return err;
+  if (typeof err === "object" && err !== null && typeof err.message === "string") {
+    return err.message;
+  }
+  if (typeof obj.message === "string") return obj.message;
+  return undefined;
+};
+
 const parseStreamJsonLine = (line: string): ParsedStreamEvent[] => {
   if (!line.startsWith("{")) return [];
   try {
@@ -142,15 +156,7 @@ const parsePiStreamLine = (line: string): ParsedStreamEvent[] => {
     // failures, rate limits, and API errors. Capture them as result events so
     // the Orchestrator's stderr-empty fallback can surface them to the user.
     if (obj.type === "agent_error" || obj.type === "error") {
-      const err = obj.error;
-      let msg: string | undefined;
-      if (typeof err === "string") {
-        msg = err;
-      } else if (typeof err === "object" && err !== null && typeof err.message === "string") {
-        msg = err.message;
-      } else if (typeof obj.message === "string") {
-        msg = obj.message;
-      }
+      const msg = extractErrorMessage(obj);
       return msg ? [{ type: "result", result: msg }] : [];
     }
     if (obj.type === "agent_end" && Array.isArray(obj.messages)) {
@@ -245,15 +251,7 @@ const parseCodexStreamLine = (line: string): ParsedStreamEvent[] => {
     // rate limits, and API errors. Capture them as result events so the
     // Orchestrator's stderr-empty fallback can surface them to the user.
     if (obj.type === "error") {
-      const err = obj.error;
-      let msg: string | undefined;
-      if (typeof err === "string") {
-        msg = err;
-      } else if (typeof err === "object" && err !== null && typeof err.message === "string") {
-        msg = err.message;
-      } else if (typeof obj.message === "string") {
-        msg = obj.message;
-      }
+      const msg = extractErrorMessage(obj);
       return msg ? [{ type: "result", result: msg }] : [];
     }
 
